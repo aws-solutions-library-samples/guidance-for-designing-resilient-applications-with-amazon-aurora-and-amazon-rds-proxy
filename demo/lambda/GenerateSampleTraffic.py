@@ -1,3 +1,6 @@
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
 import os
 import time
 import json
@@ -9,7 +12,7 @@ def handler(event, context):
 
     sns_client = boto3.client('sns')
     
-    for i in range(0, 10000):
+    for i in range(0, 1000):
         
         sns_client.publish(
             Message = 'Hola',

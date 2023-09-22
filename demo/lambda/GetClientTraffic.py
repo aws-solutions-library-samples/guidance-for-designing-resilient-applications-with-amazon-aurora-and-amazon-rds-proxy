@@ -1,3 +1,6 @@
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
 import sys
 sys.path.append('/opt')
 
@@ -18,7 +21,7 @@ def handler(event, context):
     demo_db_credentials = custom_functions.get_db_credentials('Demo')
     
     db_conn = psycopg2.connect(
-        host = os.environ['GLOBAL_DEMO_DB_WRITER_ENDPOINT'],
+        host = os.environ['DEMO_DB_CLUSTER_WRITER_ENDPOINT'],
         port = demo_db_credentials['port'],
         user = demo_db_credentials['username'],
         sslmode = 'require',
