@@ -12,14 +12,14 @@ def handler(event, context):
 
     sns_client = boto3.client('sns')
     
-    for i in range(0, 1000):
+    for i in range(0, 3000):
         
         sns_client.publish(
             Message = 'Hola',
             TargetArn = os.environ['TEST_TRAFFIC_TOPIC_ARN'],
         )
         
-        time.sleep(0.1)
+        time.sleep(0.05)
     
     return {
         'code': 200,

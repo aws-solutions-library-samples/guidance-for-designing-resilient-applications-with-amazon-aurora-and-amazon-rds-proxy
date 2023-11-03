@@ -1,3 +1,6 @@
+# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
 import sys
 sys.path.append('/opt')
 
@@ -43,7 +46,6 @@ def handler(event, context):
         curs = db_conn.cursor()
         curs.execute(sql_statement)
         id = curs.fetchone()[0]
-        print(id)
         db_conn.commit()
         curs.close()
         db_conn.close()

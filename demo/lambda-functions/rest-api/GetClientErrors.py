@@ -43,45 +43,30 @@ def handler(event, context):
     curs.close()
     db_conn.close()
     
-    data_json = ""
-    label_json = ""
-    
     data_arr = []
     label_arr = []
     
-    #for i in reversed(range(1,len(client_errors))):
-    #    label_arr.append(str(client_errors[i][0]))
-    #    data_arr.append(str(client_errors[i][1]))
-    
-    for r in reversed(client_errors):
+    '''
+        For each client error found
+    '''
+    for record in reversed(client_errors):
         
-        label_arr.append(str(r[0]))
-        data_arr.append(str(r[1]))
+        data_arr.append(str(record[1]))
+        label_arr.append(str(record[0]))
         
     if len(label_arr) > 0:
         
-        for n in range(len(label_arr) + 1, 16):
+        for n in range(len(label_arr) + 1, 16):	
             
-            label_arr.insert(0, custom_functions.subtract_five_seconds(label_arr[0]))
             data_arr.insert(0, '0')
+            label_arr.insert(0, custom_functions.subtract_five_seconds(label_arr[0]))
+    
+    #custom_functions.add_time(label_arr, data_arr)	
         
-        custom_functions.add_time(label_arr,data_arr)
-    
-    i =- 1
-    for r in label_arr:
-        i = i + 1
-        if label_json!="":
-            label_json+=","
-        if data_json!="":
-            data_json+=","
-            
-        data_json += data_arr[i]
-        label_json += label_arr[i]
-    
     return {
         'code': 200,
         'body': json.dumps([{
-            'data': data_json,
-            'labels': label_json, 
+            'data': ','.join(data_arr),
+            'labels': ','.join(label_arr),
         }])
     }
