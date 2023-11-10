@@ -23,7 +23,7 @@ def handler(event, context):
     
     try: 
         
-        guid = event['queryStringParameters']['guid']
+        guid = event['queryParams']['guid']
 
         eastern = dateutil.tz.gettz('US/Eastern')
 
@@ -32,7 +32,7 @@ def handler(event, context):
         app_db_credentials = custom_functions.get_db_credentials('App')
         
         db_conn = psycopg2.connect(
-            host = os.environ['APP_DB_CLUSTER_WRITER_ENDPOINT'],
+            host = os.environ['APP_DB_PROXY_WRITER_ENDPOINT'],
             port = app_db_credentials['port'],
             user = app_db_credentials['username'],
             password = app_db_credentials['password'],
