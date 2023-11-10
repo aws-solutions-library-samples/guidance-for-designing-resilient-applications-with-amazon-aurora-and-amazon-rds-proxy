@@ -354,8 +354,7 @@
         $('.carousel').carousel()
         	
         	const urlParams = new URLSearchParams(window.location.search);
-        	const primaryRegionName = urlParams.get('primaryRegion');
-        	const failoverRegionName = urlParams.get('failoverRegion');
+        	const regionName = urlParams.get('region');
         	
         	function sleep(ms) {
         		return new Promise(resolve => setTimeout(resolve, ms));
@@ -424,7 +423,8 @@
         					$("#aurorafailover_title").addClass("timeline-title");
         					$("#aurorafailover_time").text(failover_events[failover_event]['time'])
         					$("#aurorafailover_lapsed").text('Lapsed ' + Math.round(Math.abs(new Date(failover_events[failover_event]['insertedon']) - new Date(failover_events[1]['insertedon'])) / 1000) + ' sec')
-        					console.log($("#bypass").attr('class'))
+        					
+        					/*console.log($("#bypass").attr('class'))
         					
         					if ($("#bypass").attr('class').includes('disabled'))
         					{
@@ -433,7 +433,7 @@
         					else
         					{
         						$("#myCarousel").carousel(1)
-        					}
+        					}*/
         				}
         				
         			}
@@ -444,7 +444,7 @@
         	
         	getFailoverEvents()
         
-        	function getCalculatedRecoveryTime()
+        	/*function getCalculatedRecoveryTime()
         	{
         		async function getCalculatedRecoveryTimeData() 
         		{
@@ -461,9 +461,9 @@
         		}
         		
         		setInterval(getCalculatedRecoveryTimeData, 5000);
-        	}
+        	}*/
         	
-        	getCalculatedRecoveryTime()
+        	//getCalculatedRecoveryTime()
         
         	function getClusterInfo()
         	{
@@ -479,9 +479,9 @@
         			{	
         				az_data = cluster_info[cluster_name]
         				
-        				if (az_data['az'] == primaryRegionName + 'a')
+        				if (az_data['az'] == regionName + 'a')
         				{
-        				    $('#primaryRegionZoneALabel').text(primaryRegionName + 'a')
+        				    $('#primaryRegionZoneALabel').text(regionName + 'a')
         					$('#primaryRegionZoneAStatus').text(az_data['type'])
         					
         					if (az_data['type'] == 'READER')
@@ -493,9 +493,9 @@
         						$('#primaryRegionZoneAStatus').css("color","blue")
         					}
         				}
-        				else if (az_data['az'] == primaryRegionName + 'b')
+        				else if (az_data['az'] == regionName + 'b')
         				{
-        				    $('#primaryRegionZoneBLabel').text(primaryRegionName + 'b')
+        				    $('#primaryRegionZoneBLabel').text(regionName + 'b')
         					$('#primaryRegionZoneBStatus').text(az_data['type'])
         					
         					if (az_data['type'] == 'READER')
@@ -525,10 +525,10 @@
         			
         			record_counts = JSON.parse(response)
         			
-        			$('#Instance1Label').text('Instance 1: ' + record_counts[1]['ip'])
+        			$('#Instance1Label').text(record_counts[1]['ip'])
         			$('#Instance1RecordCount').text(record_counts[1]['records'])
         			
-        			$('#Instance2Label').text('Instance 2: ' + record_counts[2]['ip'])
+        			$('#Instance2Label').text(record_counts[2]['ip'])
         			$('#Instance2RecordCount').text(record_counts[2]['records'])
         		}
         		
@@ -560,7 +560,7 @@
         		responsive: true,
         		title: {
         		  display: true,
-        		  text: 'Requests returned by ' + primaryRegionName,
+        		  text: 'Requests',
         		},
         		legend: {
         		  display: false
