@@ -14,6 +14,15 @@
             color: #fff;
             background-color: #adb5bd;
         }
+        
+        .btn {
+            width: 100%;
+        }
+        
+        .main-card {
+            margin-bottom: 0px !important
+        }
+        
         .badge {
             display: inline-block;
             padding: 0.25em 0.4em;
@@ -186,7 +195,7 @@
     <main class="content">
 
         <div class="row">
-            <div class="col-12 col-xl-9" style="padding:0px 20px">
+            <div class="col-12 col-xl-7" style="padding:0px 20px">
                 <div class="row">
                     <div class="col-12 mb-4">
                         <div class="card border-0 shadow">
@@ -221,13 +230,13 @@
                                 </div>
 
                                 <div class="row">
-                                    <div class="col-6">
-                                        <canvas id="mycanvas"></canvas>
+                                    <div class="col-12">
+                                        <canvas id="requests-table"></canvas>
                                     </div>
 
-                                    <div class="col-6">
+                                    <!--<div class="col-6">
                                         <canvas id="cvsError"></canvas>
-                                    </div>
+                                    </div>-->
                                 </div>
                             </div>
 
@@ -235,7 +244,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-12 col-xl-3">
+            <div class="col-12 col-xl-5">
                 <div class="col-12 px-0 mb-4">
                     <div class="card border-0 shadow">
                         <div class="card-header d-flex flex-row align-items-center flex-0 border-bottom">
@@ -304,18 +313,44 @@
                     <div class="card border-0 shadow">
                         <div class="card-header d-flex flex-row align-items-center flex-0 border-bottom">
 
-                            <div class="main-card mb-3">
+                            <div class="main-card mb-5">
                                 <div class="card-body">
-                                    <h5 class="card-title">Availability Zones</h5>
+                                    <h5 class="card-title" style="font-weight: bold">Database Roles</h5>
                                     <div>
-                                        <span id="primaryRegionZoneALabel"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                                        <span id="primaryRegionZoneAStatus"></span>
+                                        <span id="ZoneALabel"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                        <span id="ZoneAStatus"></span>
                                     </div>
 
                                     <div>
-                                        <span id="primaryRegionZoneBLabel"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                                        <span id="primaryRegionZoneBStatus"></span>
+                                        <span id="ZoneBLabel"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                        <span id="ZoneBStatus"></span>
                                     </div>
+                                </div>
+                                <br>
+                                <i>* Shows the role of each DB instance. Failing over will promote the reader instance to the writer role.</i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card border-0 shadow">
+                        <div class="card-header d-flex flex-row align-items-center flex-0 border-bottom">
+
+                            <div class="main-card mb-5">
+                                <div class="card-body">
+                                    <h5 class="card-title" style="font-weight: bold">Queued Records</h5>
+                                    <div>
+                                        <span>Failed Writes</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                        <span id="FailedWritesCount">0</span>
+                                    </div>
+                                    
+                                    <div>
+                                        <span>Pending Writes</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                        <span id="PendingWritesCount">0</span>
+                                    </div>
+                                    <br>
+                                    <i>* <u>Pending Writes</u> shows the number of records generated but not yet written to the DB. During a failover, the records in this queue will rise while RDS promote the reader instance. Once the promotion is complete, the records in this queue will decrease as those records are successfully written to the database.</i>
+                                    <br><br>
+                                    <i>* <u>Failed Writes</u> shows the number of records that failed to be written to the database. In this demo, records are sent to this queue if they fail to be written to the database at least 25 times.</i>
                                 </div>
                             </div>
                         </div>
@@ -324,9 +359,9 @@
                     <div class="card border-0 shadow">
                         <div class="card-header d-flex flex-row align-items-center flex-0 border-bottom">
 
-                            <div class="main-card mb-3">
+                            <div class="main-card mb-5">
                                 <div class="card-body">
-                                    <h5 class="card-title">Database Record Counts</h5>
+                                    <h5 class="card-title" style="font-weight: bold">Database Record Counts</h5>
                                     <div>
                                         <span id="Instance1Label"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                         <span id="Instance1RecordCount"></span>
@@ -336,6 +371,8 @@
                                         <span id="Instance2Label"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
                                         <span id="Instance2RecordCount"></span>
                                     </div>
+                                    <br>
+                                    <i>* Shows the number of records successfully written to each database. As records are written to the writer instance, they are replicated to the reader. While traffic is being generated, you may notice a disparity of 1-10 records as there is always a batch of records mid-replication. However, once traffic ceases, you should see an equal number of records in both databases, indicating that the reader is "caught-up" with the writer. Furthermore, the number of records written + the number of records in the "Failed Writes" queue should be greater than or equal to 3,000. This is because when you click "Generate Client Traffic", 3,000 records are generated and delivered to the application at least once.
                                 </div>
                             </div>
                         </div>
@@ -439,7 +476,7 @@
         			}
         		}
         		
-        		setInterval(getFailoverEventData, 5000);
+        		setInterval(getFailoverEventData, 4000);
         	}
         	
         	getFailoverEvents()
@@ -465,78 +502,66 @@
         	
         	//getCalculatedRecoveryTime()
         
-        	function getClusterInfo()
+        	function getEnvironmentData()
         	{
-        		async function getClusterInfoData() 
+        		async function getEnvironmentDataRequest()
         		{
-        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-cluster-info');
+        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-environment-data');
         			let result = await fetch(request);
         			let response = await result.text();
         			
-        			cluster_info = JSON.parse(response)
+        			environment_data = JSON.parse(response)
         			
-        			for (var cluster_name in cluster_info) 
+        			for (var cluster_name in environment_data['clusterInfo'])
         			{	
-        				az_data = cluster_info[cluster_name]
+        				az_data = environment_data['clusterInfo'][cluster_name]
         				
         				if (az_data['az'] == regionName + 'a')
         				{
-        				    $('#primaryRegionZoneALabel').text(regionName + 'a')
-        					$('#primaryRegionZoneAStatus').text(az_data['type'])
+        				    $('#ZoneALabel').text(regionName + 'a')
+        					$('#ZoneAStatus').text(az_data['type'])
+        					
+        					$('#Instance1Label').text(regionName + 'a')
+        					$('#Instance1RecordCount').text(az_data['records'])
         					
         					if (az_data['type'] == 'READER')
         					{
-        						$('#primaryRegionZoneAStatus').css("color","green")
+        						$('#ZoneAStatus').css("color","green")
         					}
         					else
         					{
-        						$('#primaryRegionZoneAStatus').css("color","blue")
+        						$('#ZoneAStatus').css("color","blue")
         					}
         				}
         				else if (az_data['az'] == regionName + 'b')
         				{
-        				    $('#primaryRegionZoneBLabel').text(regionName + 'b')
-        					$('#primaryRegionZoneBStatus').text(az_data['type'])
+        				    $('#ZoneBLabel').text(regionName + 'b')
+        					$('#ZoneBStatus').text(az_data['type'])
+        					
+        					$('#Instance2Label').text(regionName + 'b')
+        					$('#Instance2RecordCount').text(az_data['records'])
         					
         					if (az_data['type'] == 'READER')
         					{
-        						$('#primaryRegionZoneBStatus').css("color","green")
+        						$('#ZoneBStatus').css("color","green")
         					}
         					else
         					{
-        						$('#primaryRegionZoneBStatus').css("color","blue")
+        						$('#ZoneBStatus').css("color","blue")
         					}
         				}
         			}
+        			
+        			$('#PendingWritesCount').text(environment_data['MessagesInPendingWritesQueue'])
+        			$('#FailedWritesCount').text(environment_data['MessagesInPendingWritesDeadLetterQueue'])
+        			
         		}
         		
-        		setInterval(getClusterInfoData, 5000);
+        		setInterval(getEnvironmentDataRequest, 3000);
         	}
         
-        	getClusterInfo()
+        	getEnvironmentData()
         	
-        	function getRecordCounts()
-        	{
-        		async function getRecordCountsData() 
-        		{
-        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-record-counts');
-        			let result = await fetch(request);
-        			let response = await result.text();
-        			
-        			record_counts = JSON.parse(response)
-        			
-        			$('#Instance1Label').text(record_counts[1]['ip'])
-        			$('#Instance1RecordCount').text(record_counts[1]['records'])
-        			
-        			$('#Instance2Label').text(record_counts[2]['ip'])
-        			$('#Instance2RecordCount').text(record_counts[2]['records'])
-        		}
-        		
-        		setInterval(getRecordCountsData, 5000);
-        	}
-        
-        	getRecordCounts()
-        
         	function getRandomIntInclusive(min, max) 
         	{
 				min = Math.ceil(min);
@@ -544,7 +569,7 @@
         		return Math.floor(Math.random() * (max - min + 1)) + min;
         	}
         
-        	var ctx_live = document.getElementById("mycanvas");
+        	var ctx_live = document.getElementById("requests-table");
         	var primaryRegionTrafficChart = new Chart(ctx_live, {
         	  type: 'line',
         	  data: {
@@ -576,7 +601,7 @@
         	  }
         	});
         
-        	var ctx_error = document.getElementById("cvsError");
+        	/*var ctx_error = document.getElementById("cvsError");
         	
         	var primaryRegionErrorChart = new Chart(ctx_error, 
         	{
@@ -617,13 +642,13 @@
                         }]
                     }
         	    }
-        	});
+        	});*/
         
         	function getPrimaryRegion()
         	{
         		async function getPrimaryRegionData() 
         		{
-        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-client-traffic?region=primary');
+        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-client-traffic');
         			let result = await fetch(request);
         			let response = await result.text();
         			
@@ -638,12 +663,12 @@
         			}	
         		}
         		
-        		setInterval(getPrimaryRegionData, 5000);
+        		setInterval(getPrimaryRegionData, 4000);
         	}
         
         	getPrimaryRegion()
         
-        	function getErrors()
+        	/*function getErrors()
         	{
         		async function getErrorData()
         		{
@@ -665,7 +690,7 @@
         		setInterval(getErrorData, 5000);
         	}
         
-        	getErrors()
+        	getErrors()*/
     </script>
 </body>
 
