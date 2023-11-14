@@ -1,11 +1,31 @@
-## My Project
 
-TODO: Fill this README out!
+## Architecting application requiring near zero RPO using Aurora database
 
-Be sure to:
+**A simple demostration of design pattern for developing application requiring near zero RPO( Recovery Point Objective) using the Amaznn RDS , RDS Proxy , Route53 and Amazon SQS deployed in a single region.**
 
-* Change the title in this README
-* Edit your repository description on GitHub
+
+## Architecture 
+
+
+
+
+
+## Demos
+
+
+## Pre-Requisites
+
+
+## Deploying the Solution 
+
+
+## Running the Solution 
+
+
+## Cleaning up this solution 
+
+
+
 
 ## Security
 
