@@ -6,7 +6,7 @@
   },
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
-  "Description": "This application deploys a Global RDS Aurora cluster.",
+  "Description": "This template deploys the demo CloudFront Distrubtion and dashboard",
   "LastUpdated": "November 22, 2023",
   "Version": "v1.5"
  },

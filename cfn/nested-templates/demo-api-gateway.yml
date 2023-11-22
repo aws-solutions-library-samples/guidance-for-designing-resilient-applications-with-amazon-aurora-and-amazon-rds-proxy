@@ -4,7 +4,7 @@ Metadata:
     ParameterLabels: {}
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
-  Description: This application deploys a Global RDS Aurora cluster.
+  Description: This template provisions the demo API Gateway
   LastUpdated: November 22, 2023
   Version: v1.5
 Outputs:

@@ -990,7 +990,7 @@ Resources:
             ParameterLabels: {}
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
-          Description: This application deploys a Global RDS Aurora cluster.
+          Description: This template deploys the app and demo databases (if applicable)
           LastUpdated: November 22, 2023
           Version: v1.5
         Outputs:
@@ -2083,7 +2083,7 @@ Resources:
             ParameterLabels: {}
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
-          Description: This application deploys a Global RDS Aurora cluster.
+          Description: This template deploys the demo API Gateway API
           LastUpdated: November 22, 2023
           Version: v1.5
         Outputs:
@@ -2298,7 +2298,7 @@ Resources:
             ParameterLabels: {}
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
-          Description: This application deploys a Global RDS Aurora cluster.
+          Description: This template provisions the demo API Gateway
           LastUpdated: November 22, 2023
           Version: v1.5
         Outputs:
@@ -2498,7 +2498,7 @@ Resources:
             ParameterLabels: {}
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
-          Description: This application deploys a Global RDS Aurora cluster.
+          Description: This template provisions the demo API methods and handlers
           LastUpdated: November 22, 2023
           Version: v1.5
         Parameters:
@@ -3609,7 +3609,7 @@ Resources:
             ParameterLabels: {}
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
-          Description: This application deploys a Global RDS Aurora cluster.
+          Description: This template provisions the demo API methods and handlers
           LastUpdated: November 22, 2023
           Version: v1.5
         Parameters:
@@ -4718,7 +4718,7 @@ Resources:
             ParameterLabels: {}
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
-          Description: This application deploys a Global RDS Aurora cluster.
+          Description: This template deploys the demo CloudFront Distrubtion and dashboard
           LastUpdated: November 22, 2023
           Version: v1.5
         Outputs:
@@ -4986,7 +4986,7 @@ Resources:
             ParameterLabels: {}
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
-          Description: This application deploys a Global RDS Aurora cluster.
+          Description: This template deploys the handles that facilitate the demo failover tracking.
           LastUpdated: November 22, 2023
           Version: v1.5
         Parameters:
@@ -5675,7 +5675,7 @@ Resources:
             ParameterLabels: {}
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
-          Description: This application deploys a Global RDS Aurora cluster.
+          Description: This template deploys the VPC and other networking resources required to host the application
           LastUpdated: November 22, 2023
           Version: v1.5
         Outputs:
