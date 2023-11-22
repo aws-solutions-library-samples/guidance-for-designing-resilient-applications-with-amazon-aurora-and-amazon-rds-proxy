@@ -28,7 +28,6 @@ def trigger_failover():
         
 def log_failover_event():
     
-    eastern = dateutil.tz.gettz('US/Eastern')
     demo_db_credentials = custom_functions.get_db_credentials('Demo')
     
     db_conn = psycopg2.connect(
@@ -42,7 +41,14 @@ def log_failover_event():
     )
 
     curs = db_conn.cursor()
-    curs.execute("INSERT INTO failoverevents (event, insertedon) values (1,'" + datetime.datetime.now(tz = eastern).strftime("%m/%d/%Y %H:%M:%S") + "' )")
+    
+    curs.execute('''
+        INSERT INTO failoverevents (event, insertedon) 
+            VALUES (1, %s)
+    ''', (
+        datetime.datetime.now().strftime("%m/%d/%Y %H:%M:%S"), 
+    ))
+    
     db_conn.commit()
     
     curs.close()

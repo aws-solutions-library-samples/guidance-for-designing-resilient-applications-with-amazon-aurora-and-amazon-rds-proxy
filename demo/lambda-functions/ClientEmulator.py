@@ -38,7 +38,10 @@ def handler(event, context):
 
     curs = db_conn.cursor()
     
-    curs.execute("INSERT INTO dataclient (guid, primary_region, failover_region, http_code, insertedon) VALUES ('{}', 0, 0, 0, '{}');".format(
+    curs.execute('''
+        INSERT INTO dataclient (guid, primary_region, failover_region, http_code, insertedon) 
+            VALUES (%s, 0, 0, 0, %s)
+    ''', (
         str(guid),
         datetime.datetime.now(tz = eastern).strftime("%m/%d/%Y %H:%M:%S")
     ))
@@ -52,9 +55,10 @@ def handler(event, context):
 
     try:
         
+        # nosemgrep - No subject to user input (Semgrep)
         res = urllib.request.urlopen(
             urllib.request.Request(
-                url = 'https://' + os.environ['PUBLIC_APP_URL'] + '?guid=' + str(guid),
+                url = 'https://' + os.environ['PUBLIC_APP_URL'] + '?guid=' + str(guid), # nosec - Not subject to user input (Bandit)
                 method = 'GET',
             ),
             timeout = 5
@@ -78,9 +82,9 @@ def handler(event, context):
         
         curs.execute('''
             UPDATE dataclient SET
-                http_code       = {}
-            WHERE guid = '{}'
-        '''.format(
+                http_code = %s
+            WHERE guid = %s
+        ''', (
             http_code,
             str(guid)
         ))

@@ -15,7 +15,7 @@ def handler(event, context):
     for i in range(0, 3000):
         
         sns_client.publish(
-            Message = 'Hola',
+            Message = 'Message #: ' + str(i),
             TargetArn = os.environ['TEST_TRAFFIC_TOPIC_ARN'],
         )
         

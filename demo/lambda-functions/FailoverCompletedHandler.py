@@ -8,9 +8,10 @@ import os
 import json
 import boto3
 import psycopg2
-import datetime
 import dateutil.tz
 import multi_region_db
+from datetime import datetime
+from datetime import timedelta
 from botocore.exceptions import ClientError as boto3_client_error
 
 custom_functions = multi_region_db.Functions()
@@ -18,8 +19,6 @@ custom_functions = multi_region_db.Functions()
 def handler(event, context):
     
     print(json.dumps(event))
-    
-    eastern = dateutil.tz.gettz('US/Eastern')
     
     demo_db_credentials = custom_functions.get_db_credentials('Demo')
 
@@ -32,11 +31,31 @@ def handler(event, context):
         connect_timeout = 3,
         sslmode = 'require',
     )
-
-    curs = db_conn.cursor()
-    curs.execute("INSERT INTO failoverevents (event,insertedon) values (2,'" + datetime.datetime.now(tz = eastern).strftime("%m/%d/%Y %H:%M:%S") + "' )")
-    db_conn.commit()
     
+    '''
+    curs = db_conn.cursor()
+    curs.execute("INSERT INTO failoverevents (event,insertedon) values (3,'" + datetime.now(tz = eastern).strftime("%m/%d/%Y %H:%M:%S") + "' )")
+    db_conn.commit()
+        
+    curs = db_conn.cursor()
+    curs.execute("INSERT INTO failoverevents (event,insertedon) values (4,'" + datetime.now(tz = eastern).strftime("%m/%d/%Y %H:%M:%S") + "' )")
+    db_conn.commit()
+    '''
+    
+    '''
+        Logs Failover Completion
+    '''
+    curs = db_conn.cursor()
+    
+    curs.execute('''
+        INSERT INTO failoverevents (event, insertedon) 
+            VALUES (3, %s)
+    ''', (
+        datetime.now().strftime("%m/%d/%Y %H:%M:%S"), 
+    ))
+    
+    db_conn.commit()
+        
     curs.close()
     db_conn.close()
     
