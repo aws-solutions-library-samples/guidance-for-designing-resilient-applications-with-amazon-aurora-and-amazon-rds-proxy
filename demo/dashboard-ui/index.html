@@ -657,30 +657,6 @@
         	}
         
         	getPrimaryRegion()
-        
-        	/*function getErrors()
-        	{
-        		async function getErrorData()
-        		{
-        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-client-errors');
-        			let result = await fetch(request);
-        			let response = await result.text();
-        			
-        			client_errors = JSON.parse(response)		
-        			
-        			for (var client_error in client_errors) 
-        			{	
-        				primaryRegionErrorChart.data.labels = client_errors[client_error]['labels'].split(',')
-        
-        				primaryRegionErrorChart.data.datasets[0].data = client_errors[client_error]['data'].split(',')
-        				primaryRegionErrorChart.update('none')
-        			}	
-        		}
-        		
-        		setInterval(getErrorData, 5000);
-        	}
-        
-        	getErrors()*/
     </script>
 </body>
 
