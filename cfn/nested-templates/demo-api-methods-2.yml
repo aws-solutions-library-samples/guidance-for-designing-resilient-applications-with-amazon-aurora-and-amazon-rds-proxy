@@ -1,0 +1,1045 @@
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups: []
+    ParameterLabels: {}
+  Comments: ''
+  CreatedBy: Carter Meyers (AWS)
+  Description: This application deploys a Global RDS Aurora cluster.
+  LastUpdated: November 22, 2023
+  Version: v1.5
+Parameters:
+  CodeDownloadUrl:
+    Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
+    Description: The URL from which the supporting codebase can be downloaded. This codebase is used to deploy the demo dashboard.
+    Type: String
+  DatabaseAdminPassword:
+    Description: The password to be used for the RDS Aurora admin account.
+    NoEcho: true
+    Type: String
+  DatabaseAdminUsername:
+    Default: AuroraAdmin
+    Description: The username to be used for the RDS Aurora admin account.
+    Type: String
+  DemoDashboardUserEmail:
+    Description: The email address you'll use to log into the dashboard. This is required if "Deploy Demo Dashboard" is set to "Yes".
+    Type: String
+  DeployDemoDashboard:
+    AllowedValues:
+      - 'No'
+      - 'Yes'
+    Default: 'Yes'
+    Description: >-
+      Would you like a demo application deployed along side this solution that will allow you to test the failover? INFO: Because of WAF service requirements, demo WAF and CloudFront resources will be deployed
+      to us-east-1, regardless of which region you deploy this stack to.
+    Type: String
+  GitHubGhSessionValue:
+    Description: The value of your GitHub "_gh_sess" cookie. This parameter will be removed when the solution's GitHub repo is made public.
+    Type: String
+  GitHubUserSessionValue:
+    Description: The value of your GitHub "user_session" cookie. This parameter will be removed when the solution's GitHub repo is made public.
+    Type: String
+  LambdaLayerArn:
+    Type: String
+  MainStackName:
+    Type: String
+  PrivateSubnetZoneACidr:
+    Default: 10.10.1.0/24
+    Description: The CIDR range you wish to use for your primary private subnet.
+    Type: String
+  PrivateSubnetZoneBCidr:
+    Default: 10.10.3.0/24
+    Description: The CIDR range you wish to use for your failover private subnet.
+    Type: String
+  PublicSubnetZoneACidr:
+    Default: 10.10.0.0/24
+    Description: The CIDR range you wish to use for your primary public subnet.
+    Type: String
+  PublicSubnetZoneBCidr:
+    Default: 10.10.2.0/24
+    Description: The CIDR range you wish to use for your failover public subnet.
+    Type: String
+  RegionalWafAclArn:
+    Type: String
+  VpcCidr:
+    Default: 10.10.0.0/21
+    Description: The CIDR range you wish to use for your VPC.
+    Type: String
+Resources:
+  ClientEmulator:
+    DependsOn: []
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W92
+            reason: This function is used to support the demo environment and does not require provisioned concurrency.
+    Properties:
+      Architectures:
+        - x86_64
+      Code:
+        ZipFile: "# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.\n# SPDX-License-Identifier: MIT-0\n\nimport sys\nsys.path.append('/opt')\n\nimport os\nimport json\nimport uuid\n\
+          import psycopg2\nimport datetime\nimport dateutil.tz\nimport urllib.request\nimport multi_region_db\nfrom botocore.vendored import requests\n\ncustom_functions = multi_region_db.Functions()\n\
+          \        \ndef handler(event, context):\n    \n    print(json.dumps(event))\n    \n    guid = uuid.uuid4()\n    \n    eastern = dateutil.tz.gettz('US/Eastern')\n\n    demo_db_credentials = custom_functions.get_db_credentials('Demo')\n\
+          \n    db_conn = psycopg2.connect(\n        host = os.environ['DEMO_DB_CLUSTER_WRITER_ENDPOINT'],\n        port = demo_db_credentials['port'],\n        user = demo_db_credentials['username'],\n\
+          \        password = demo_db_credentials['password'],\n        database = demo_db_credentials['database'],\n        connect_timeout = 3,\n        sslmode = 'require',\n    )\n\n    curs = db_conn.cursor()\n\
+          \    \n    curs.execute('''\n        INSERT INTO dataclient (guid, primary_region, failover_region, http_code, insertedon) \n            VALUES (%s, 0, 0, 0, %s)\n    ''', (\n        str(guid),\n\
+          \        datetime.datetime.now(tz = eastern).strftime(\"%m/%d/%Y %H:%M:%S\")\n    ))\n    \n    db_conn.commit()\n    \n    http_code = 200\n    http_content = ''\n\n    print('END guid: ' + str(guid))\n\
+          \n    try:\n        \n        # nosemgrep - No subject to user input (Semgrep)\n        res = urllib.request.urlopen(\n            urllib.request.Request(\n                url = 'https://' + os.environ['PUBLIC_APP_URL']\
+          \ + '?guid=' + str(guid), # nosec - Not subject to user input (Bandit)\n                method = 'GET',\n            ),\n            timeout = 5\n        )\n        \n        http_code = res.status\n\
+          \        http_content = res.read().decode()\n        \n    except Exception as e:\n        http_code = 500\n        print('Client Web Request Failed :' + str(e))\n\n    try: \n\n        if http_code\
+          \ > 200:\n            http_content = ''\n            \n        print(http_code)\n            \n        curs = db_conn.cursor()\n        \n        curs.execute('''\n            UPDATE dataclient\
+          \ SET\n                http_code = %s\n            WHERE guid = %s\n        ''', (\n            http_code,\n            str(guid)\n        ))\n        \n        db_conn.commit()\n        \n  \
+          \  except Exception as ex:\n        http_code = 500\n        print('Failed to Update Client Request: ' + str(ex) + ' - HTTP Content: \"' + http_content + '\"')\n    \n    curs.close()\n    db_conn.close()\n\
+          \    \n    return True"
+      Description: Emulates legitimate client traffic
+      Environment:
+        Variables:
+          DEMO_DB_CLUSTER_WRITER_ENDPOINT: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /DemoDbClusterWriterEndpoint}}
+          DEMO_DB_SECRET_ARN: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /DemoDbAdminSecretArn}}
+          PUBLIC_APP_URL: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /CoreAppUrl}}
+      Handler: index.handler
+      Layers:
+        - !Ref 'LambdaLayerArn'
+      MemorySize: 128
+      Role: !GetAtt 'ClientEmulatorRole.Arn'
+      Runtime: python3.9
+      Timeout: 60
+      TracingConfig:
+        Mode: PassThrough
+      VpcConfig:
+        SecurityGroupIds:
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /LambdaSecurityGroupId}}
+        SubnetIds:
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PrivateSubnetZoneAId}}
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PrivateSubnetZoneBId}}
+    Type: AWS::Lambda::Function
+  ClientEmulatorLogGroup:
+    DeletionPolicy: Delete
+    DependsOn:
+      - ClientEmulator
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: This log group supports an ephemeral demo environment and does not contain sensitive data.
+    Properties:
+      LogGroupName: !Join
+        - ''
+        - - /aws/lambda/
+          - !Ref 'ClientEmulator'
+      RetentionInDays: 30
+    Type: AWS::Logs::LogGroup
+  ClientEmulatorRole:
+    DependsOn: []
+    Metadata: {}
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      MaxSessionDuration: 3600
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - secretsmanager:GetSecretValue
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /AppDbAdminSecretArn}}
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /DemoDbAdminSecretArn}}
+                Sid: GetRDSAdminSecret
+              - Action:
+                  - kms:Decrypt
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /KmsKeyArn}}
+                Sid: DecryptWithKMS
+          PolicyName: database-secret-retrieval
+    Type: AWS::IAM::Role
+  ClientEmulatorTopicSubscription:
+    DependsOn:
+      - ClientEmulator
+      - TestTrafficTopic
+      - TestTrafficTopicPermission
+    Properties:
+      Endpoint: !GetAtt 'ClientEmulator.Arn'
+      Protocol: lambda
+      TopicArn: !Ref 'TestTrafficTopic'
+    Type: AWS::SNS::Subscription
+  GenerateSampleTraffic:
+    DependsOn:
+      - GenerateSampleTrafficRole
+      - TestTrafficTopic
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W92
+            reason: This function is used to support the demo environment and does not require provisioned concurrency.
+    Properties:
+      Architectures:
+        - x86_64
+      Code:
+        ZipFile: "# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.\n# SPDX-License-Identifier: MIT-0\n\nimport os\nimport time\nimport json\nimport boto3\n\ndef handler(event, context):\n\
+          \    \n    print(json.dumps(event))\n\n    sns_client = boto3.client('sns')\n    \n    for i in range(0, 3000):\n        \n        sns_client.publish(\n            Message = 'Message #: ' + str(i),\n\
+          \            TargetArn = os.environ['TEST_TRAFFIC_TOPIC_ARN'],\n        )\n        \n        time.sleep(0.05)\n    \n    return {\n        'code': 200,\n        'body': json.dumps([])\n    }\n"
+      Description: Generates test client traffic
+      Environment:
+        Variables:
+          TEST_TRAFFIC_TOPIC_ARN: !Ref 'TestTrafficTopic'
+      Handler: index.handler
+      Layers:
+        - !Ref 'LambdaLayerArn'
+      MemorySize: 128
+      Role: !GetAtt 'GenerateSampleTrafficRole.Arn'
+      Runtime: python3.9
+      Timeout: 900
+      TracingConfig:
+        Mode: PassThrough
+      VpcConfig:
+        SecurityGroupIds:
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /LambdaSecurityGroupId}}
+        SubnetIds:
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PrivateSubnetZoneAId}}
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PrivateSubnetZoneBId}}
+    Type: AWS::Lambda::Function
+  GenerateSampleTrafficLogGroup:
+    DeletionPolicy: Delete
+    DependsOn:
+      - GenerateSampleTraffic
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: This log group supports an ephemeral demo environment and does not contain sensitive data.
+    Properties:
+      LogGroupName: !Join
+        - ''
+        - - /aws/lambda/
+          - !Ref 'GenerateSampleTraffic'
+      RetentionInDays: 30
+    Type: AWS::Logs::LogGroup
+  GenerateSampleTrafficMethod:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W59
+            reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+            ResponseTemplates:
+              application/json: $input.path('$.body')
+            StatusCode: '200'
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        RequestTemplates:
+          application/json: "#set($params = $input.params())\n{\n\"queryParams\": { #set($paramSet = $params.get('querystring')) #foreach($paramName in $paramSet.keySet()) \"$paramName\" : \"$util.escapeJavaScript($paramSet.get($paramName))\"\
+            \ #if($foreach.hasNext),#end #end }\n}"
+        Type: AWS
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref 'AWS::Region'
+            - :lambda:path/2015-03-31/functions/
+            - !GetAtt 'GenerateSampleTraffic.Arn'
+            - /invocations
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          StatusCode: '200'
+      OperationName: getTrafficGenerator
+      ResourceId: !Ref 'GenerateSampleTrafficResource'
+      RestApiId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /DemoAppApiId}}
+    Type: AWS::ApiGateway::Method
+  GenerateSampleTrafficMethodInvocationPermission:
+    DependsOn:
+      - GenerateSampleTraffic
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt 'GenerateSampleTraffic.Arn'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join
+        - ''
+        - - 'arn:aws:execute-api:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':'
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /DemoAppApiId}}
+          - /*/
+          - GET
+          - /
+          - generate-sample-traffic
+    Type: AWS::Lambda::Permission
+  GenerateSampleTrafficResource:
+    Condition: ''
+    DependsOn: []
+    Properties:
+      ParentId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /ApiRootResourceId}}
+      PathPart: generate-sample-traffic
+      RestApiId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /DemoAppApiId}}
+    Type: AWS::ApiGateway::Resource
+  GenerateSampleTrafficResourceOptionsMethod:
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'''
+              method.response.header.Access-Control-Allow-Methods: '''GET,OPTIONS'''
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+            ResponseTemplates:
+              application/json: '{}'
+            StatusCode: '200'
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          StatusCode: '200'
+      ResourceId: !Ref 'GenerateSampleTrafficResource'
+      RestApiId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /DemoAppApiId}}
+    Type: AWS::ApiGateway::Method
+  GenerateSampleTrafficRole:
+    DependsOn: []
+    Metadata: {}
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      MaxSessionDuration: 3600
+      Policies: []
+    Type: AWS::IAM::Role
+  GenerateSampleTrafficRoleGenerateTestTrafficPolicy:
+    DependsOn:
+      - GenerateSampleTrafficRole
+      - TestTrafficTopic
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - sns:Publish
+            Effect: Allow
+            Resource:
+              - !Ref 'TestTrafficTopic'
+            Sid: SendMessagesToSNS
+      PolicyName: generate-test-traffic
+      Roles:
+        - !Ref 'GenerateSampleTrafficRole'
+    Type: AWS::IAM::Policy
+  GetEnvironmentData:
+    DependsOn: []
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W92
+            reason: This function is used to support the demo environment and does not require provisioned concurrency.
+    Properties:
+      Architectures:
+        - x86_64
+      Code:
+        ZipFile: "# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.\n# SPDX-License-Identifier: MIT-0\n\nimport sys\nsys.path.append('/opt')\n\nimport os\nimport json\nimport boto3\n\
+          import psycopg2\nimport multi_region_db\nfrom botocore.exceptions import ClientError as boto3_client_error\n\ncustom_functions = multi_region_db.Functions()\napp_db_credentials = custom_functions.get_db_credentials('App')\n\
+          \ndef handler(event, context):\n    \n    print(json.dumps(event))\n    \n    env_data = {\n        'clusterInfo': {}\n    }\n    \n    rds_client = boto3.client('rds')\n    sqs_client = boto3.client('sqs')\n\
+          \    \n    ######################\n    #### CLUSTER INFO ####\n    ######################\n\n    cluster_resp = rds_client.describe_db_clusters(\n        DBClusterIdentifier = os.environ['APP_DB_CLUSTER_IDENTIFIER']\n\
+          \    )\n        \n    for member in cluster_resp['DBClusters'][0]['DBClusterMembers']:\n        \n        instance_resp = rds_client.describe_db_instances(\n            DBInstanceIdentifier =\
+          \ member['DBInstanceIdentifier']\n        )\n        \n        instance_data = {\n            'az': instance_resp['DBInstances'][0]['AvailabilityZone'],\n            'type': 'WRITER' if member['IsClusterWriter']\
+          \ is True else 'READER'\n        }\n        \n        try:\n            \n            db_conn = psycopg2.connect(\n                host = instance_resp['DBInstances'][0]['Endpoint']['Address'],\n\
+          \                port = app_db_credentials['port'],\n                user = app_db_credentials['username'],\n                password = app_db_credentials['password'],\n                database\
+          \ = app_db_credentials['database'],\n                connect_timeout = 3,\n                sslmode = 'require',\n            )\n            \n            curs = db_conn.cursor()\n            \n\
+          \            curs.execute('''\n                SELECT\n                    COUNT(*) AS count\n                FROM dataserver\n            ''');\n            \n            instance_records = curs.fetchone()\n\
+          \            \n            instance_data['records'] = instance_records[0]\n    \n            curs.close()\n            db_conn.close()\n            \n        except psycopg2.OperationalError as\
+          \ err:\n            \n            instance_data['records'] = 'N/A - Offline'\n        \n        env_data['clusterInfo'][member['DBInstanceIdentifier']] = instance_data\n    \n    ##############################\n\
+          \    #### QUEUE MESSAGE COUNTS ####\n    ##############################\n    \n    try:\n        \n        pending_writes_queue_resp = sqs_client.get_queue_attributes(\n            QueueUrl =\
+          \ os.environ['PENDING_WRITES_QUEUE_URL'],\n            AttributeNames = [\n                'ApproximateNumberOfMessages',\n                'ApproximateNumberOfMessagesNotVisible',\n          \
+          \  ]\n        )\n        \n        attrs = pending_writes_queue_resp['Attributes']\n        \n        env_data['MessagesInPendingWritesQueue'] = int(attrs['ApproximateNumberOfMessages']) + int(attrs['ApproximateNumberOfMessagesNotVisible'])\n\
+          \        \n        pending_writes_dl_queue_resp = sqs_client.get_queue_attributes(\n            QueueUrl = os.environ['PENDING_WRITES_DL_QUEUE_URL'],\n            AttributeNames = [\n        \
+          \        'ApproximateNumberOfMessages',\n                'ApproximateNumberOfMessagesNotVisible',\n            ]\n        )\n        \n        attrs = pending_writes_dl_queue_resp['Attributes']\n\
+          \        \n        env_data['MessagesInPendingWritesDeadLetterQueue'] = int(attrs['ApproximateNumberOfMessages']) + int(attrs['ApproximateNumberOfMessagesNotVisible'])\n        \n    except boto3_client_error\
+          \ as e:\n        raise Exception('Failed to Retrieve Queue Attributes: ' + str(e))\n    \n    return {\n        'code': 200,\n        'body': json.dumps(env_data)\n    }"
+      Description: Retrieves data about DB instances, SQS queues, and other resources for use on the dashboard
+      Environment:
+        Variables:
+          APP_DB_CLUSTER_IDENTIFIER: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /AppDbClusterIdentifier}}
+          APP_DB_SECRET_ARN: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /AppDbAdminSecretArn}}
+          PENDING_WRITES_DL_QUEUE_URL: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PendingWritesDBDeadLetterQueueUrl}}
+          PENDING_WRITES_QUEUE_URL: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PendingWritesDBQueueUrl}}
+      Handler: index.handler
+      Layers:
+        - !Ref 'LambdaLayerArn'
+      MemorySize: 128
+      Role: !GetAtt 'GetEnvironmentDataRole.Arn'
+      Runtime: python3.9
+      Timeout: 60
+      TracingConfig:
+        Mode: PassThrough
+      VpcConfig:
+        SecurityGroupIds:
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /LambdaSecurityGroupId}}
+        SubnetIds:
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PrivateSubnetZoneAId}}
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PrivateSubnetZoneBId}}
+    Type: AWS::Lambda::Function
+  GetEnvironmentDataLogGroup:
+    DeletionPolicy: Delete
+    DependsOn:
+      - GetEnvironmentData
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: This log group supports an ephemeral demo environment and does not contain sensitive data.
+    Properties:
+      LogGroupName: !Join
+        - ''
+        - - /aws/lambda/
+          - !Ref 'GetEnvironmentData'
+      RetentionInDays: 30
+    Type: AWS::Logs::LogGroup
+  GetEnvironmentDataMethod:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W59
+            reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+            ResponseTemplates:
+              application/json: $input.path('$.body')
+            StatusCode: '200'
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        RequestTemplates:
+          application/json: "#set($params = $input.params())\n{\n\"queryParams\": { #set($paramSet = $params.get('querystring')) #foreach($paramName in $paramSet.keySet()) \"$paramName\" : \"$util.escapeJavaScript($paramSet.get($paramName))\"\
+            \ #if($foreach.hasNext),#end #end }\n}"
+        Type: AWS
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref 'AWS::Region'
+            - :lambda:path/2015-03-31/functions/
+            - !GetAtt 'GetEnvironmentData.Arn'
+            - /invocations
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          StatusCode: '200'
+      OperationName: getEnvironmentData
+      ResourceId: !Ref 'GetEnvironmentDataResource'
+      RestApiId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /DemoAppApiId}}
+    Type: AWS::ApiGateway::Method
+  GetEnvironmentDataMethodInvocationPermission:
+    DependsOn:
+      - GetEnvironmentData
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt 'GetEnvironmentData.Arn'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join
+        - ''
+        - - 'arn:aws:execute-api:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':'
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /DemoAppApiId}}
+          - /*/
+          - GET
+          - /
+          - get-environment-data
+    Type: AWS::Lambda::Permission
+  GetEnvironmentDataResource:
+    Condition: ''
+    DependsOn: []
+    Properties:
+      ParentId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /ApiRootResourceId}}
+      PathPart: get-environment-data
+      RestApiId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /DemoAppApiId}}
+    Type: AWS::ApiGateway::Resource
+  GetEnvironmentDataResourceOptionsMethod:
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'''
+              method.response.header.Access-Control-Allow-Methods: '''GET,OPTIONS'''
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+            ResponseTemplates:
+              application/json: '{}'
+            StatusCode: '200'
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          StatusCode: '200'
+      ResourceId: !Ref 'GetEnvironmentDataResource'
+      RestApiId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /DemoAppApiId}}
+    Type: AWS::ApiGateway::Method
+  GetEnvironmentDataRole:
+    DependsOn: []
+    Metadata: {}
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      MaxSessionDuration: 3600
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - secretsmanager:GetSecretValue
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /AppDbAdminSecretArn}}
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /DemoDbAdminSecretArn}}
+                Sid: GetRDSAdminSecret
+              - Action:
+                  - kms:Decrypt
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /KmsKeyArn}}
+                Sid: DecryptWithKMS
+          PolicyName: database-secret-retrieval
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - rds:DescribeDBClusters
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /AppDbClusterArn}}
+                Sid: DescribeRDSClusters
+          PolicyName: get-db-clusters
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - rds:DescribeDBInstances
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - 'arn:aws:rds:'
+                      - !Ref 'AWS::Region'
+                      - ':'
+                      - !Ref 'AWS::AccountId'
+                      - :db*
+                Sid: DescribeDBInstances
+          PolicyName: get-db-instances
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - sqs:GetQueueAttributes
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /PendingWritesDBQueueArn}}
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /PendingWritesDBDeadLetterQueueArn}}
+                Sid: DescribeDBInstances
+          PolicyName: get-queue-attributes
+    Type: AWS::IAM::Role
+  ResetDemoEnvironment:
+    DependsOn: []
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W92
+            reason: This function is used to support the demo environment and does not require provisioned concurrency.
+    Properties:
+      Architectures:
+        - x86_64
+      Code:
+        ZipFile: "# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.\n# SPDX-License-Identifier: MIT-0\n\nimport sys\nsys.path.append('/opt')\n\nimport os\nimport json\nimport boto3\n\
+          import psycopg2\nimport dateutil.tz\nimport multi_region_db\nfrom datetime import datetime\nfrom botocore.exceptions import ClientError as boto3_client_error\n\nsqs_client = boto3.client('sqs')\n\
+          \ncustom_functions = multi_region_db.Functions()\n\ndef prune_db_tables(db_identifier, table_names):\n    \n    db_credentials = custom_functions.get_db_credentials(db_identifier)\n    \n    db_conn\
+          \ = psycopg2.connect(\n        host = os.environ[db_identifier.upper() + '_DB_CLUSTER_WRITER_ENDPOINT'],\n        port = db_credentials['port'],\n        user = db_credentials['username'],\n \
+          \       sslmode = 'require',\n        password = db_credentials['password'],\n        database = db_credentials['database'],\n        connect_timeout = 3,\n    )\n    \n    for table_to_prune\
+          \ in table_names:\n        \n        curs = db_conn.cursor()\n        \n        # nosemgrep - Not subject to user input (Semgrep)\n        curs.execute('DELETE FROM ' + table_to_prune) # nosec\
+          \ - Not subject to user input (Bandit)\n        \n        db_conn.commit()\n        \n    curs.close()\n    db_conn.close()\n    \n    return True\n    \ndef purge_sqs_queue(queue_url):\n    \n\
+          \    try:\n        \n        sqs_client.purge_queue(\n            QueueUrl = queue_url,\n        )\n    \n    except boto3_client_error as e:\n        raise Exception('Failed to Purgue Queue:\
+          \ ' + str(e))\n        \n    return True\n\n'''\n    It is expected that this function will be run in the PRIMARY AWS region\n'''\ndef handler(event, context):\n    \n    prune_db_tables('App',\
+          \ ['dataserver'])\n    prune_db_tables('Demo', ['dataclient', 'failoverevents'])\n    \n    purge_sqs_queue(os.environ['PENDING_WRITES_QUEUE_URL'])\n    purge_sqs_queue(os.environ['PENDING_WRITES_DL_QUEUE_URL'])\n\
+          \    \n    return {\n        'code': 200,\n        'body': json.dumps([])\n    }"
+      Description: Resets the demo environment
+      Environment:
+        Variables:
+          APP_DB_CLUSTER_READER_ENDPOINT: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /AppDbClusterReaderEndpoint}}
+          APP_DB_CLUSTER_WRITER_ENDPOINT: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /AppDbClusterWriterEndpoint}}
+          APP_DB_PROXY_READER_ENDPOINT: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /
+              - AppDbProxyReaderEndpoint}}
+          APP_DB_PROXY_WRITER_ENDPOINT: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /
+              - AppDbProxyWriterEndpoint}}
+          APP_DB_SECRET_ARN: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /AppDbAdminSecretArn}}
+          DEMO_DB_CLUSTER_WRITER_ENDPOINT: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /DemoDbClusterWriterEndpoint}}
+          DEMO_DB_SECRET_ARN: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /DemoDbAdminSecretArn}}
+          PENDING_WRITES_DL_QUEUE_URL: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PendingWritesDBDeadLetterQueueUrl}}
+          PENDING_WRITES_QUEUE_URL: !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PendingWritesDBQueueUrl}}
+      Handler: index.handler
+      Layers:
+        - !Ref 'LambdaLayerArn'
+      MemorySize: 128
+      Role: !GetAtt 'ResetDemoEnvironmentRole.Arn'
+      Runtime: python3.9
+      Timeout: 60
+      TracingConfig:
+        Mode: PassThrough
+      VpcConfig:
+        SecurityGroupIds:
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /LambdaSecurityGroupId}}
+        SubnetIds:
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PrivateSubnetZoneAId}}
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /PrivateSubnetZoneBId}}
+    Type: AWS::Lambda::Function
+  ResetDemoEnvironmentLogGroup:
+    DeletionPolicy: Delete
+    DependsOn:
+      - ResetDemoEnvironment
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: This log group supports an ephemeral demo environment and does not contain sensitive data.
+    Properties:
+      LogGroupName: !Join
+        - ''
+        - - /aws/lambda/
+          - !Ref 'ResetDemoEnvironment'
+      RetentionInDays: 30
+    Type: AWS::Logs::LogGroup
+  ResetDemoEnvironmentMethod:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W59
+            reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: POST
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+            ResponseTemplates:
+              application/json: $input.path('$.body')
+            StatusCode: '200'
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        RequestTemplates:
+          application/json: "#set($params = $input.params())\n{\n\"queryParams\": { #set($paramSet = $params.get('querystring')) #foreach($paramName in $paramSet.keySet()) \"$paramName\" : \"$util.escapeJavaScript($paramSet.get($paramName))\"\
+            \ #if($foreach.hasNext),#end #end }\n}"
+        Type: AWS
+        Uri: !Join
+          - ''
+          - - 'arn:aws:apigateway:'
+            - !Ref 'AWS::Region'
+            - :lambda:path/2015-03-31/functions/
+            - !GetAtt 'ResetDemoEnvironment.Arn'
+            - /invocations
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+          StatusCode: '200'
+      OperationName: getResetDemoEnvironment
+      ResourceId: !Ref 'ResetDemoEnvironmentResource'
+      RestApiId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /DemoAppApiId}}
+    Type: AWS::ApiGateway::Method
+  ResetDemoEnvironmentMethodInvocationPermission:
+    DependsOn:
+      - ResetDemoEnvironment
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt 'ResetDemoEnvironment.Arn'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join
+        - ''
+        - - 'arn:aws:execute-api:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':'
+          - !Join
+            - ''
+            - - '{{resolve:ssm:/'
+              - !Ref 'MainStackName'
+              - /DemoAppApiId}}
+          - /*/
+          - GET
+          - /
+          - reset-demo-environment
+    Type: AWS::Lambda::Permission
+  ResetDemoEnvironmentResource:
+    Condition: ''
+    DependsOn: []
+    Properties:
+      ParentId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /ApiRootResourceId}}
+      PathPart: reset-demo-environment
+      RestApiId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /DemoAppApiId}}
+    Type: AWS::ApiGateway::Resource
+  ResetDemoEnvironmentResourceOptionsMethod:
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'''
+              method.response.header.Access-Control-Allow-Methods: '''GET,OPTIONS'''
+              method.response.header.Access-Control-Allow-Origin: '''*'''
+            ResponseTemplates:
+              application/json: '{}'
+            StatusCode: '200'
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - ResponseModels:
+            application/json: Empty
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+          StatusCode: '200'
+      ResourceId: !Ref 'ResetDemoEnvironmentResource'
+      RestApiId: !Join
+        - ''
+        - - '{{resolve:ssm:/'
+          - !Ref 'MainStackName'
+          - /DemoAppApiId}}
+    Type: AWS::ApiGateway::Method
+  ResetDemoEnvironmentRole:
+    DependsOn: []
+    Metadata: {}
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      MaxSessionDuration: 3600
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - secretsmanager:GetSecretValue
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /AppDbAdminSecretArn}}
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /DemoDbAdminSecretArn}}
+                Sid: GetRDSAdminSecret
+              - Action:
+                  - kms:Decrypt
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /KmsKeyArn}}
+                Sid: DecryptWithKMS
+          PolicyName: database-secret-retrieval
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - sqs:PurgeQueue
+                Effect: Allow
+                Resource:
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /PendingWritesDBQueueArn}}
+                  - !Join
+                    - ''
+                    - - '{{resolve:ssm:/'
+                      - !Ref 'MainStackName'
+                      - /PendingWritesDBDeadLetterQueueArn}}
+          PolicyName: purge-sqs-queues
+    Type: AWS::IAM::Role
+  TestTrafficTopic:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W47
+            reason: This resource supports an ephemeral demo environment and does not contain sensitive data.
+    Type: AWS::SNS::Topic
+  TestTrafficTopicPermission:
+    DependsOn:
+      - ClientEmulator
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref 'ClientEmulator'
+      Principal: sns.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !Ref 'TestTrafficTopic'
+    Type: AWS::Lambda::Permission

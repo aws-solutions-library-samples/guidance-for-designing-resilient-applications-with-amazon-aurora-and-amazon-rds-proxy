@@ -1,0 +1,1127 @@
+{
+ "Metadata": {
+  "AWS::CloudFormation::Interface": {
+   "ParameterGroups": [],
+   "ParameterLabels": {}
+  },
+  "Comments": "",
+  "CreatedBy": "Carter Meyers (AWS)",
+  "Description": "This application deploys a Global RDS Aurora cluster.",
+  "LastUpdated": "November 22, 2023",
+  "Version": "v1.5"
+ },
+ "Outputs": {
+  "CoreAppHandlerName": {
+   "Condition": "",
+   "Export": {
+    "Name": {
+     "Fn::Join": [
+      "-",
+      [
+       {
+        "Ref": "MainStackName"
+       },
+       "CoreAppHandlerName"
+      ]
+     ]
+    }
+   },
+   "Value": {
+    "Ref": "CoreAppHandler"
+   }
+  },
+  "CoreAppUrl": {
+   "Condition": "",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      {
+       "Fn::GetAtt": [
+        "Api",
+        "RestApiId"
+       ]
+      },
+      ".execute-api.",
+      {
+       "Ref": "AWS::Region"
+      },
+      ".amazonaws.com/v1"
+     ]
+    ]
+   }
+  },
+  "PendingWritesDBDeadLetterQueueArn": {
+   "Condition": "",
+   "Value": {
+    "Fn::GetAtt": [
+     "PendingDBInsertsDl",
+     "Arn"
+    ]
+   }
+  },
+  "PendingWritesDBDeadLetterQueueUrl": {
+   "Condition": "",
+   "Value": {
+    "Ref": "PendingDBInsertsDl"
+   }
+  },
+  "PendingWritesDBQueueArn": {
+   "Condition": "",
+   "Value": {
+    "Fn::GetAtt": [
+     "PendingDBInserts",
+     "Arn"
+    ]
+   }
+  },
+  "PendingWritesDBQueueUrl": {
+   "Condition": "",
+   "Value": {
+    "Ref": "PendingDBInserts"
+   }
+  }
+ },
+ "Parameters": {
+  "CodeDownloadUrl": {
+   "Default": "https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip",
+   "Description": "The URL from which the supporting codebase can be downloaded. This codebase is used to deploy the demo dashboard.",
+   "Type": "String"
+  },
+  "DatabaseAdminPassword": {
+   "Description": "The password to be used for the RDS Aurora admin account.",
+   "NoEcho": true,
+   "Type": "String"
+  },
+  "DatabaseAdminUsername": {
+   "Default": "AuroraAdmin",
+   "Description": "The username to be used for the RDS Aurora admin account.",
+   "Type": "String"
+  },
+  "DemoDashboardUserEmail": {
+   "Description": "The email address you'll use to log into the dashboard. This is required if \"Deploy Demo Dashboard\" is set to \"Yes\".",
+   "Type": "String"
+  },
+  "DeployDemoDashboard": {
+   "AllowedValues": [
+    "No",
+    "Yes"
+   ],
+   "Default": "Yes",
+   "Description": "Would you like a demo application deployed along side this solution that will allow you to test the failover? INFO: Because of WAF service requirements, demo WAF and CloudFront resources will be deployed to us-east-1, regardless of which region you deploy this stack to.",
+   "Type": "String"
+  },
+  "GitHubGhSessionValue": {
+   "Description": "The value of your GitHub \"_gh_sess\" cookie. This parameter will be removed when the solution's GitHub repo is made public.",
+   "Type": "String"
+  },
+  "GitHubUserSessionValue": {
+   "Description": "The value of your GitHub \"user_session\" cookie. This parameter will be removed when the solution's GitHub repo is made public.",
+   "Type": "String"
+  },
+  "LambdaLayerArn": {
+   "Type": "String"
+  },
+  "MainStackName": {
+   "Type": "String"
+  },
+  "PrivateSubnetZoneACidr": {
+   "Default": "10.10.1.0/24",
+   "Description": "The CIDR range you wish to use for your primary private subnet.",
+   "Type": "String"
+  },
+  "PrivateSubnetZoneBCidr": {
+   "Default": "10.10.3.0/24",
+   "Description": "The CIDR range you wish to use for your failover private subnet.",
+   "Type": "String"
+  },
+  "PublicSubnetZoneACidr": {
+   "Default": "10.10.0.0/24",
+   "Description": "The CIDR range you wish to use for your primary public subnet.",
+   "Type": "String"
+  },
+  "PublicSubnetZoneBCidr": {
+   "Default": "10.10.2.0/24",
+   "Description": "The CIDR range you wish to use for your failover public subnet.",
+   "Type": "String"
+  },
+  "RegionalWafAclArn": {
+   "Type": "String"
+  },
+  "VpcCidr": {
+   "Default": "10.10.0.0/21",
+   "Description": "The CIDR range you wish to use for your VPC.",
+   "Type": "String"
+  }
+ },
+ "Resources": {
+  "Api": {
+   "Properties": {
+    "EndpointConfiguration": {
+     "Types": [
+      "REGIONAL"
+     ]
+    },
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       {
+        "Ref": "MainStackName"
+       },
+       " - Core Application"
+      ]
+     ]
+    }
+   },
+   "Type": "AWS::ApiGateway::RestApi"
+  },
+  "CoreAppHandler": {
+   "DependsOn": [],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W92",
+       "reason": "This function is used to support the demo environment and does not require provisioned concurrency."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "Architectures": [
+     "x86_64"
+    ],
+    "Code": {
+     "ZipFile": "# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.\n# SPDX-License-Identifier: MIT-0\n\nimport sys\nsys.path.append('/opt')\n\nimport os\nimport json\nimport boto3\nimport datetime\nimport psycopg2\nimport dateutil.tz\nimport multi_region_db\nfrom botocore.exceptions import ClientError as boto3_client_error\n\ncustom_functions = multi_region_db.Functions()\n\ndef handler(event, context):\n    \n    print(json.dumps(event))\n    \n    for incoming_record in event['Records']:\n        \n        guid = incoming_record['body']\n        \n        try:\n            \n            app_db_credentials = custom_functions.get_db_credentials('App')\n            \n            db_conn = psycopg2.connect(\n                host = os.environ['APP_DB_PROXY_WRITER_ENDPOINT'],\n                port = app_db_credentials['port'],\n                user = app_db_credentials['username'],\n                password = app_db_credentials['password'],\n                database = app_db_credentials['database'],\n                connect_timeout = 3,\n                sslmode = 'require',\n            )\n            \n            id = 0\n            curs = db_conn.cursor()\n            \n            curs.execute('''\n                INSERT INTO dataserver (guid, insertedon) VALUES (%s, %s) \n                RETURNING id\n            ''', (\n                guid,\n                datetime.datetime.now(tz = dateutil.tz.gettz('US/Eastern')).strftime(\"%m/%d/%Y %H:%M:%S\")\n            ))\n    \n            id = curs.fetchone()[0]\n            db_conn.commit()\n            curs.close()\n            db_conn.close()\n        \n        except Exception as e:\n            print(e)\n            raise Exception('Failed to Write Record to the Database')\n    \n    return True"
+    },
+    "Description": "Serves as the root handler behind the Web ALB",
+    "Environment": {
+     "Variables": {
+      "APP_DB_PROXY_WRITER_ENDPOINT": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:ssm:/",
+         {
+          "Ref": "MainStackName"
+         },
+         "/",
+         "AppDbProxyWriterEndpoint}}"
+        ]
+       ]
+      },
+      "APP_DB_SECRET_ARN": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:ssm:/",
+         {
+          "Ref": "MainStackName"
+         },
+         "/AppDbAdminSecretArn}}"
+        ]
+       ]
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Layers": [
+     {
+      "Ref": "LambdaLayerArn"
+     }
+    ],
+    "MemorySize": 128,
+    "Role": {
+     "Fn::GetAtt": [
+      "CoreAppHandlerRole",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.9",
+    "Timeout": 5,
+    "TracingConfig": {
+     "Mode": "PassThrough"
+    },
+    "VpcConfig": {
+     "SecurityGroupIds": [
+      {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:ssm:/",
+         {
+          "Ref": "MainStackName"
+         },
+         "/LambdaSecurityGroupId}}"
+        ]
+       ]
+      }
+     ],
+     "SubnetIds": [
+      {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:ssm:/",
+         {
+          "Ref": "MainStackName"
+         },
+         "/PrivateSubnetZoneAId}}"
+        ]
+       ]
+      },
+      {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:ssm:/",
+         {
+          "Ref": "MainStackName"
+         },
+         "/PrivateSubnetZoneBId}}"
+        ]
+       ]
+      }
+     ]
+    }
+   },
+   "Type": "AWS::Lambda::Function"
+  },
+  "CoreAppHandlerGetAndDeleteFromSQSQueuePolicy": {
+   "DependsOn": [
+    "CoreAppHandlerRole",
+    "PendingDBInserts"
+   ],
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sqs:DeleteMessage",
+        "sqs:ReceiveMessage",
+        "sqs:GetQueueAttributes"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PendingDBInserts",
+          "Arn"
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    "PolicyName": "get-and-delete-from-sqs-queue",
+    "Roles": [
+     {
+      "Ref": "CoreAppHandlerRole"
+     }
+    ]
+   },
+   "Type": "AWS::IAM::Policy"
+  },
+  "CoreAppHandlerLogGroup": {
+   "DeletionPolicy": "Delete",
+   "DependsOn": [
+    "CoreAppHandler"
+   ],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W84",
+       "reason": "This log group supports an ephemeral demo environment and does not contain sensitive data."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "LogGroupName": {
+     "Fn::Join": [
+      "",
+      [
+       "/aws/lambda/",
+       {
+        "Ref": "CoreAppHandler"
+       }
+      ]
+     ]
+    },
+    "RetentionInDays": 30
+   },
+   "Type": "AWS::Logs::LogGroup"
+  },
+  "CoreAppHandlerNameParam": {
+   "Condition": "",
+   "Properties": {
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Core App Handler Function Name for ",
+       {
+        "Ref": "AWS::StackName"
+       },
+       " stack"
+      ]
+     ]
+    },
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       "/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/",
+       "CoreAppHandlerName"
+      ]
+     ]
+    },
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": {
+     "Ref": "CoreAppHandler"
+    }
+   },
+   "Type": "AWS::SSM::Parameter"
+  },
+  "CoreAppHandlerPendingDBInsertsEventSource": {
+   "DependsOn": [
+    "CoreAppHandlerPendingDBInsertsPermission",
+    "CoreAppHandlerGetAndDeleteFromSQSQueuePolicy",
+    "PendingDBInserts"
+   ],
+   "Properties": {
+    "BatchSize": 1,
+    "Enabled": true,
+    "EventSourceArn": {
+     "Fn::GetAtt": [
+      "PendingDBInserts",
+      "Arn"
+     ]
+    },
+    "FunctionName": {
+     "Ref": "CoreAppHandler"
+    }
+   },
+   "Type": "AWS::Lambda::EventSourceMapping"
+  },
+  "CoreAppHandlerPendingDBInsertsPermission": {
+   "DependsOn": [
+    "PendingDBInserts",
+    "CoreAppHandler"
+   ],
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Ref": "CoreAppHandler"
+    },
+    "Principal": "sqs.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "PendingDBInserts",
+      "Arn"
+     ]
+    }
+   },
+   "Type": "AWS::Lambda::Permission"
+  },
+  "CoreAppHandlerRole": {
+   "DependsOn": [],
+   "Metadata": {},
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sts:AssumeRole"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "Service": [
+         "lambda.amazonaws.com"
+        ]
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+     "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+    ],
+    "MaxSessionDuration": 3600,
+    "Policies": [
+     {
+      "PolicyDocument": {
+       "Statement": [
+        {
+         "Action": [
+          "secretsmanager:GetSecretValue"
+         ],
+         "Effect": "Allow",
+         "Resource": [
+          {
+           "Fn::Join": [
+            "",
+            [
+             "{{resolve:ssm:/",
+             {
+              "Ref": "MainStackName"
+             },
+             "/AppDbAdminSecretArn}}"
+            ]
+           ]
+          },
+          {
+           "Fn::Join": [
+            "",
+            [
+             "{{resolve:ssm:/",
+             {
+              "Ref": "MainStackName"
+             },
+             "/DemoDbAdminSecretArn}}"
+            ]
+           ]
+          }
+         ],
+         "Sid": "GetRDSAdminSecret"
+        },
+        {
+         "Action": [
+          "kms:Decrypt"
+         ],
+         "Effect": "Allow",
+         "Resource": [
+          {
+           "Fn::Join": [
+            "",
+            [
+             "{{resolve:ssm:/",
+             {
+              "Ref": "MainStackName"
+             },
+             "/KmsKeyArn}}"
+            ]
+           ]
+          }
+         ],
+         "Sid": "DecryptWithKMS"
+        }
+       ]
+      },
+      "PolicyName": "database-secret-retrieval"
+     }
+    ]
+   },
+   "Type": "AWS::IAM::Role"
+  },
+  "CoreAppUrlParam": {
+   "Condition": "",
+   "Properties": {
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Core App API Host for ",
+       {
+        "Ref": "AWS::StackName"
+       },
+       " stack"
+      ]
+     ]
+    },
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       "/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/",
+       "CoreAppUrl"
+      ]
+     ]
+    },
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": {
+     "Fn::Join": [
+      "",
+      [
+       {
+        "Fn::GetAtt": [
+         "Api",
+         "RestApiId"
+        ]
+       },
+       ".execute-api.",
+       {
+        "Ref": "AWS::Region"
+       },
+       ".amazonaws.com/v1"
+      ]
+     ]
+    }
+   },
+   "Type": "AWS::SSM::Parameter"
+  },
+  "DEFAULT4XXGatewayResponse": {
+   "Properties": {
+    "ResponseParameters": {
+     "gatewayresponse.header.Access-Control-Allow-Origin": "'*'"
+    },
+    "ResponseType": "DEFAULT_4XX",
+    "RestApiId": {
+     "Ref": "Api"
+    }
+   },
+   "Type": "AWS::ApiGateway::GatewayResponse"
+  },
+  "DEFAULT5XXGatewayResponse": {
+   "Properties": {
+    "ResponseParameters": {
+     "gatewayresponse.header.Access-Control-Allow-Origin": "'*'"
+    },
+    "ResponseType": "DEFAULT_5XX",
+    "RestApiId": {
+     "Ref": "Api"
+    }
+   },
+   "Type": "AWS::ApiGateway::GatewayResponse"
+  },
+  "Deployment": {
+   "DependsOn": [
+    "RootGetMethod",
+    "RootOptionsMethod"
+   ],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W68",
+       "reason": "This API does not use API keys."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "Description": "Initial Deployment",
+    "RestApiId": {
+     "Ref": "Api"
+    }
+   },
+   "Type": "AWS::ApiGateway::Deployment"
+  },
+  "DeploymentStage": {
+   "DependsOn": [
+    "Deployment"
+   ],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W69",
+       "reason": "This API does not use API keys."
+      },
+      {
+       "id": "W64",
+       "reason": "This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "DeploymentId": {
+     "Ref": "Deployment"
+    },
+    "MethodSettings": [
+     {
+      "CachingEnabled": false,
+      "DataTraceEnabled": true,
+      "HttpMethod": "GET",
+      "MetricsEnabled": true,
+      "ResourcePath": "/~1",
+      "ThrottlingBurstLimit": "5000",
+      "ThrottlingRateLimit": "10000"
+     }
+    ],
+    "RestApiId": {
+     "Ref": "Api"
+    },
+    "StageName": "v1"
+   },
+   "Type": "AWS::ApiGateway::Stage"
+  },
+  "PendingDBInserts": {
+   "DependsOn": [
+    "PendingDBInsertsDl"
+   ],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W48",
+       "reason": "This resource is being used to support an ephemeral demo environment and will not contain sensitive data."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "ContentBasedDeduplication": true,
+    "FifoQueue": true,
+    "MessageRetentionPeriod": 1209600,
+    "RedrivePolicy": {
+     "deadLetterTargetArn": {
+      "Fn::GetAtt": [
+       "PendingDBInsertsDl",
+       "Arn"
+      ]
+     },
+     "maxReceiveCount": 25
+    },
+    "VisibilityTimeout": 5
+   },
+   "Type": "AWS::SQS::Queue"
+  },
+  "PendingDBInsertsDl": {
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W48",
+       "reason": "This resource is being used to support an ephemeral demo environment and will not contain sensitive data."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "ContentBasedDeduplication": true,
+    "FifoQueue": true,
+    "MessageRetentionPeriod": 1209600
+   },
+   "Type": "AWS::SQS::Queue"
+  },
+  "PendingWritesDBDeadLetterQueueArnParam": {
+   "Condition": "",
+   "Properties": {
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Pending Writes DB Dead Letter Queue ARN for ",
+       {
+        "Ref": "AWS::StackName"
+       },
+       " stack"
+      ]
+     ]
+    },
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       "/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/",
+       "PendingWritesDBDeadLetterQueueArn"
+      ]
+     ]
+    },
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": {
+     "Fn::GetAtt": [
+      "PendingDBInsertsDl",
+      "Arn"
+     ]
+    }
+   },
+   "Type": "AWS::SSM::Parameter"
+  },
+  "PendingWritesDBDeadLetterQueueUrlParam": {
+   "Condition": "",
+   "Properties": {
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Pending Writes DB Dead Letter Queue URL for ",
+       {
+        "Ref": "AWS::StackName"
+       },
+       " stack"
+      ]
+     ]
+    },
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       "/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/",
+       "PendingWritesDBDeadLetterQueueUrl"
+      ]
+     ]
+    },
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": {
+     "Ref": "PendingDBInsertsDl"
+    }
+   },
+   "Type": "AWS::SSM::Parameter"
+  },
+  "PendingWritesDBQueueArnParam": {
+   "Condition": "",
+   "Properties": {
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Pending Writes DB Queue ARN for ",
+       {
+        "Ref": "AWS::StackName"
+       },
+       " stack"
+      ]
+     ]
+    },
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       "/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/",
+       "PendingWritesDBQueueArn"
+      ]
+     ]
+    },
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": {
+     "Fn::GetAtt": [
+      "PendingDBInserts",
+      "Arn"
+     ]
+    }
+   },
+   "Type": "AWS::SSM::Parameter"
+  },
+  "PendingWritesDBQueueUrlParam": {
+   "Condition": "",
+   "Properties": {
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Pending Writes DB Queue URL for ",
+       {
+        "Ref": "AWS::StackName"
+       },
+       " stack"
+      ]
+     ]
+    },
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       "/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/",
+       "PendingWritesDBQueueUrl"
+      ]
+     ]
+    },
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": {
+     "Ref": "PendingDBInserts"
+    }
+   },
+   "Type": "AWS::SSM::Parameter"
+  },
+  "RootGetMethod": {
+   "DependsOn": [
+    "Api",
+    "PendingDBInserts"
+   ],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W59",
+       "reason": "This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "GET",
+    "Integration": {
+     "Credentials": {
+      "Fn::GetAtt": [
+       "SQSAPIRole",
+       "Arn"
+      ]
+     },
+     "IntegrationHttpMethod": "POST",
+     "IntegrationResponses": [
+      {
+       "ResponseTemplates": {
+        "application/json": "{}"
+       },
+       "StatusCode": "200"
+      }
+     ],
+     "PassthroughBehavior": "WHEN_NO_TEMPLATES",
+     "RequestParameters": {
+      "integration.request.header.Content-Type": "'application/x-www-form-urlencoded'"
+     },
+     "RequestTemplates": {
+      "application/json": "Action=SendMessage&MessageBody=$input.params()[\"querystring\"][\"guid\"]&MessageGroupId=$input.params()[\"querystring\"][\"guid\"]"
+     },
+     "Type": "AWS",
+     "Uri": {
+      "Fn::Join": [
+       "",
+       [
+        "arn:aws:apigateway:",
+        {
+         "Ref": "AWS::Region"
+        },
+        ":sqs:path/",
+        {
+         "Ref": "AWS::AccountId"
+        },
+        "/",
+        {
+         "Fn::GetAtt": [
+          "PendingDBInserts",
+          "QueueName"
+         ]
+        }
+       ]
+      ]
+     }
+    },
+    "MethodResponses": [
+     {
+      "ResponseModels": {
+       "application/json": "Empty"
+      },
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Origin": true
+      },
+      "StatusCode": "200"
+     }
+    ],
+    "ResourceId": {
+     "Fn::GetAtt": [
+      "Api",
+      "RootResourceId"
+     ]
+    },
+    "RestApiId": {
+     "Ref": "Api"
+    }
+   },
+   "Type": "AWS::ApiGateway::Method"
+  },
+  "RootMethodInvocationPermission": {
+   "DependsOn": [
+    "CoreAppHandler"
+   ],
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "CoreAppHandler",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:aws:execute-api:",
+       {
+        "Ref": "AWS::Region"
+       },
+       ":",
+       {
+        "Ref": "AWS::AccountId"
+       },
+       ":",
+       {
+        "Ref": "Api"
+       },
+       "/*/",
+       "GET",
+       "/"
+      ]
+     ]
+    }
+   },
+   "Type": "AWS::Lambda::Permission"
+  },
+  "RootOptionsMethod": {
+   "Properties": {
+    "ApiKeyRequired": false,
+    "AuthorizationType": "NONE",
+    "HttpMethod": "OPTIONS",
+    "Integration": {
+     "IntegrationResponses": [
+      {
+       "ResponseParameters": {
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'",
+        "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
+        "method.response.header.Access-Control-Allow-Origin": "'*'"
+       },
+       "ResponseTemplates": {
+        "application/json": "{}"
+       },
+       "StatusCode": "200"
+      }
+     ],
+     "PassthroughBehavior": "WHEN_NO_TEMPLATES",
+     "RequestTemplates": {
+      "application/json": "{\"statusCode\": 200}"
+     },
+     "Type": "MOCK"
+    },
+    "MethodResponses": [
+     {
+      "ResponseModels": {
+       "application/json": "Empty"
+      },
+      "ResponseParameters": {
+       "method.response.header.Access-Control-Allow-Headers": true,
+       "method.response.header.Access-Control-Allow-Methods": true,
+       "method.response.header.Access-Control-Allow-Origin": true
+      },
+      "StatusCode": "200"
+     }
+    ],
+    "ResourceId": {
+     "Fn::GetAtt": [
+      "Api",
+      "RootResourceId"
+     ]
+    },
+    "RestApiId": {
+     "Ref": "Api"
+    }
+   },
+   "Type": "AWS::ApiGateway::Method"
+  },
+  "SQSAPIRole": {
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sts:AssumeRole"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "Service": [
+         "apigateway.amazonaws.com"
+        ]
+       }
+      }
+     ]
+    },
+    "MaxSessionDuration": 3600,
+    "Policies": [
+     {
+      "PolicyDocument": {
+       "Statement": [
+        {
+         "Action": [
+          "sqs:SendMessage"
+         ],
+         "Effect": "Allow",
+         "Resource": [
+          {
+           "Fn::Join": [
+            ":",
+            [
+             "arn",
+             {
+              "Ref": "AWS::Partition"
+             },
+             "sqs",
+             {
+              "Ref": "AWS::Region"
+             },
+             {
+              "Ref": "AWS::AccountId"
+             },
+             "*"
+            ]
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      "PolicyName": "master-policy"
+     }
+    ]
+   },
+   "Type": "AWS::IAM::Role"
+  },
+  "WafAssociation": {
+   "DependsOn": [
+    "DeploymentStage"
+   ],
+   "Properties": {
+    "ResourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":apigateway:",
+       {
+        "Ref": "AWS::Region"
+       },
+       "::/restapis/",
+       {
+        "Ref": "Api"
+       },
+       "/stages/v1"
+      ]
+     ]
+    },
+    "WebACLArn": {
+     "Ref": "RegionalWafAclArn"
+    }
+   },
+   "Type": "AWS::WAFv2::WebACLAssociation"
+  }
+ }
+}

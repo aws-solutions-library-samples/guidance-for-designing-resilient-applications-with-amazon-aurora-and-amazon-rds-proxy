@@ -1,0 +1,334 @@
+{
+ "Metadata": {
+  "AWS::CloudFormation::Interface": {
+   "ParameterGroups": [],
+   "ParameterLabels": {}
+  },
+  "Comments": "",
+  "CreatedBy": "Carter Meyers (AWS)",
+  "Description": "This application deploys a Global RDS Aurora cluster.",
+  "LastUpdated": "November 22, 2023",
+  "Version": "v1.5"
+ },
+ "Outputs": {
+  "CloudFrontCdnWebsiteExport": {
+   "Export": {
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       {
+        "Ref": "MainStackName"
+       },
+       "-DashboardWebsite"
+      ]
+     ]
+    }
+   },
+   "Value": {
+    "Fn::GetAtt": [
+     "Authentication",
+     "Outputs.WebsiteUrl"
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "CodeDownloadUrl": {
+   "Default": "https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip",
+   "Description": "The URL from which the supporting codebase can be downloaded. This codebase is used to deploy the demo dashboard.",
+   "Type": "String"
+  },
+  "DatabaseAdminPassword": {
+   "Description": "The password to be used for the RDS Aurora admin account.",
+   "NoEcho": true,
+   "Type": "String"
+  },
+  "DatabaseAdminUsername": {
+   "Default": "AuroraAdmin",
+   "Description": "The username to be used for the RDS Aurora admin account.",
+   "Type": "String"
+  },
+  "DemoDashboardUserEmail": {
+   "Description": "The email address you'll use to log into the dashboard. This is required if \"Deploy Demo Dashboard\" is set to \"Yes\".",
+   "Type": "String"
+  },
+  "DeployDemoDashboard": {
+   "AllowedValues": [
+    "No",
+    "Yes"
+   ],
+   "Default": "Yes",
+   "Description": "Would you like a demo application deployed along side this solution that will allow you to test the failover? INFO: Because of WAF service requirements, demo WAF and CloudFront resources will be deployed to us-east-1, regardless of which region you deploy this stack to.",
+   "Type": "String"
+  },
+  "GitHubGhSessionValue": {
+   "Description": "The value of your GitHub \"_gh_sess\" cookie. This parameter will be removed when the solution's GitHub repo is made public.",
+   "Type": "String"
+  },
+  "GitHubUserSessionValue": {
+   "Description": "The value of your GitHub \"user_session\" cookie. This parameter will be removed when the solution's GitHub repo is made public.",
+   "Type": "String"
+  },
+  "LambdaLayerArn": {
+   "Type": "String"
+  },
+  "MainStackName": {
+   "Type": "String"
+  },
+  "PrivateSubnetZoneACidr": {
+   "Default": "10.10.1.0/24",
+   "Description": "The CIDR range you wish to use for your primary private subnet.",
+   "Type": "String"
+  },
+  "PrivateSubnetZoneBCidr": {
+   "Default": "10.10.3.0/24",
+   "Description": "The CIDR range you wish to use for your failover private subnet.",
+   "Type": "String"
+  },
+  "PublicSubnetZoneACidr": {
+   "Default": "10.10.0.0/24",
+   "Description": "The CIDR range you wish to use for your primary public subnet.",
+   "Type": "String"
+  },
+  "PublicSubnetZoneBCidr": {
+   "Default": "10.10.2.0/24",
+   "Description": "The CIDR range you wish to use for your failover public subnet.",
+   "Type": "String"
+  },
+  "RegionalWafAclArn": {
+   "Type": "String"
+  },
+  "VpcCidr": {
+   "Default": "10.10.0.0/21",
+   "Description": "The CIDR range you wish to use for your VPC.",
+   "Type": "String"
+  }
+ },
+ "Resources": {
+  "Authentication": {
+   "Properties": {
+    "Location": {
+     "ApplicationId": "arn:aws:serverlessrepo:us-east-1:520945424137:applications/cloudfront-authorization-at-edge",
+     "SemanticVersion": "2.1.8"
+    },
+    "Parameters": {
+     "CreateCloudFrontDistribution": true,
+     "DefaultRootObject": "index.html",
+     "EmailAddress": {
+      "Ref": "DemoDashboardUserEmail"
+     },
+     "HttpHeaders": "{\"Strict-Transport-Security\": \"max-age=31536000; includeSubdomains; preload\", \"Referrer-Policy\": \"same-origin\", \"X-XSS-Protection\": \"1; mode=block\", \"X-Frame-Options\": \"DENY\", \"X-Content-Type-Options\": \"nosniff\"}"
+    }
+   },
+   "Type": "AWS::Serverless::Application"
+  },
+  "DashboardCodeDeployer": {
+   "DependsOn": [],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W89",
+       "reason": "This function run once to set up the environment, and is invoked before the VPC is provisioned."
+      },
+      {
+       "id": "W84",
+       "reason": "These logs do not contain sensitive data."
+      },
+      {
+       "id": "W92",
+       "reason": "This function is used to support the demo environment and does not require provisioned concurrency."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "Architectures": [
+     "x86_64"
+    ],
+    "Code": {
+     "ZipFile": "import sys,subprocess\nsubprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)\nsys.path.insert(1,'/tmp/')\nimport os,json,glob,boto3,shutil,urllib3,zipfile,mimetypes,cfnresponse\nfrom collections import defaultdict\nfrom botocore.exceptions import ClientError as boto3_client_error\nhttp=urllib3.PoolManager()\ntry:from urllib2 import HTTPError,build_opener,HTTPHandler,Request\nexcept ImportError:from urllib.error import HTTPError;from urllib.request import build_opener,HTTPHandler,Request\n'\\n    - CodeBucketName | str\\n    - CodeDownloadUrl | str\\n'\ndef handler(event,context):\n\tT='VersionId';S='Key';R='RequestType';K='CodeBucketName';C=context;A=event;print(json.dumps(A));D=A['ResourceProperties']['Properties'];F=boto3.client('s3');E={}\n\tif A[R]in['Create','Update']:\n\t\tG='/tmp/demo_ui_code.zip';L=G.replace('.zip','');'\\n            Download the codebase\\n        ';U=urllib3.PoolManager();H=U.request('GET',D['CodeDownloadUrl'],preload_content=False,headers={'Cookie':'_gh_sess={}; user_session={}'.format(os.environ['GITHUB_GH_SESSION_COOKIE'],os.environ['GITHUB_USER_SESSION_COOKIE'])})\n\t\tif H.status!=200:print('Failed to Download Demo UI Code: HTTP Code '+str(H.status));return cfnresponse.send(A,C,cfnresponse.FAILED,E)\n\t\twith H as V,open(G,'wb')as W:shutil.copyfileobj(V,W)\n\t\t'\\n            Unzip the downloaded code\\n        '\n\t\twith zipfile.ZipFile(G,'r')as X:X.extractall(L)\n\t\tM='/demo/dashboard-ui/';'\\n            For each file in the local code directory\\n        '\n\t\tfor B in glob.iglob(L+'**/**',recursive=True):\n\t\t\t\"\\n                If it's one of the dashboard files and it's a file, not a directory, we'll upload it to S3\\n            \"\n\t\t\tif M in B and os.path.isfile(B):\n\t\t\t\ttry:Y=B.split(M)[1];F.upload_file(B,D[K],Y,ExtraArgs={'ContentType':mimetypes.guess_type(B)[0]})\n\t\t\t\texcept boto3_client_error as I:print('Failed to Upload Dashboard File: '+str(I));return cfnresponse.send(A,C,cfnresponse.FAILED,E)\n\telif A[R]in['Delete']:\n\t\t\"\\n            Here, we'll delete all objects, versions, and delete markers from the bucket.\\n        \";Z=F.get_paginator('list_object_versions');J=[]\n\t\tfor N in Z.paginate(Bucket=D[K]):\n\t\t\tfor O in['Versions','DeleteMarkers']:\n\t\t\t\tif O in N:\n\t\t\t\t\tfor P in N[O]:J.append({S:P[S],T:P[T]})\n\t\tfor Q in range(0,len(J),1000):\n\t\t\ttry:a=F.delete_objects(Bucket=D[K],Delete={'Objects':J[Q:Q+1000],'Quiet':True})\n\t\t\texcept boto3_client_error as I:print('Failed to Delete S3 Objects: '+str(I));return cfnresponse.send(A,C,cfnresponse.FAILED,E)\n\treturn cfnresponse.send(A,C,cfnresponse.SUCCESS,E)"
+    },
+    "Description": "Downloads dashboard code from a remote repo and deploys it to Amazon S3",
+    "Environment": {
+     "Variables": {
+      "CODE_BUCKET_NAME": {
+       "Fn::GetAtt": [
+        "Authentication",
+        "Outputs.S3Bucket"
+       ]
+      },
+      "CODE_DOWNLOAD_URL": {
+       "Ref": "CodeDownloadUrl"
+      },
+      "GITHUB_GH_SESSION_COOKIE": {
+       "Ref": "GitHubGhSessionValue"
+      },
+      "GITHUB_USER_SESSION_COOKIE": {
+       "Ref": "GitHubUserSessionValue"
+      }
+     }
+    },
+    "Handler": "index.handler",
+    "Layers": [
+     {
+      "Ref": "LambdaLayerArn"
+     }
+    ],
+    "MemorySize": 128,
+    "Role": {
+     "Fn::GetAtt": [
+      "DashboardCodeDeployerRole",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.9",
+    "Timeout": 30,
+    "TracingConfig": {
+     "Mode": "PassThrough"
+    }
+   },
+   "Type": "AWS::Lambda::Function"
+  },
+  "DashboardCodeDeployerLogGroup": {
+   "DeletionPolicy": "Delete",
+   "DependsOn": [
+    "DashboardCodeDeployer"
+   ],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W84",
+       "reason": "This log group supports an ephemeral demo environment and does not contain sensitive data."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "LogGroupName": {
+     "Fn::Join": [
+      "",
+      [
+       "/aws/lambda/",
+       {
+        "Ref": "DashboardCodeDeployer"
+       }
+      ]
+     ]
+    },
+    "RetentionInDays": 30
+   },
+   "Type": "AWS::Logs::LogGroup"
+  },
+  "DashboardCodeDeployerResource": {
+   "DependsOn": [
+    "Authentication",
+    "DashboardCodeDeployer",
+    "DashboardCodeDeployerLogGroup"
+   ],
+   "Properties": {
+    "Properties": {
+     "CodeBucketName": {
+      "Fn::GetAtt": [
+       "Authentication",
+       "Outputs.S3Bucket"
+      ]
+     },
+     "CodeDownloadUrl": {
+      "Ref": "CodeDownloadUrl"
+     },
+     "Version": "1.10"
+    },
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "DashboardCodeDeployer",
+      "Arn"
+     ]
+    },
+    "Type": "Custom::DeployDashboardCode",
+    "Version": "1.0"
+   },
+   "Type": "AWS::CloudFormation::CustomResource"
+  },
+  "DashboardCodeDeployerRole": {
+   "DependsOn": [],
+   "Metadata": {},
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "sts:AssumeRole"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "Service": [
+         "lambda.amazonaws.com"
+        ]
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+    ],
+    "MaxSessionDuration": 3600,
+    "Policies": [
+     {
+      "PolicyDocument": {
+       "Statement": [
+        {
+         "Action": [
+          "s3:PutObject",
+          "s3:ListBucket",
+          "s3:DeleteObject",
+          "s3:ListBucketVersions",
+          "s3:DeleteObjectVersion"
+         ],
+         "Effect": "Allow",
+         "Resource": [
+          {
+           "Fn::Join": [
+            "",
+            [
+             "arn:aws:s3:::",
+             {
+              "Fn::GetAtt": [
+               "Authentication",
+               "Outputs.S3Bucket"
+              ]
+             }
+            ]
+           ]
+          },
+          {
+           "Fn::Join": [
+            "",
+            [
+             "arn:aws:s3:::",
+             {
+              "Fn::GetAtt": [
+               "Authentication",
+               "Outputs.S3Bucket"
+              ]
+             },
+             "/*"
+            ]
+           ]
+          }
+         ],
+         "Sid": "PutS3Objects"
+        }
+       ]
+      },
+      "PolicyName": "main-policy"
+     }
+    ]
+   },
+   "Type": "AWS::IAM::Role"
+  }
+ },
+ "Transform": "AWS::Serverless-2016-10-31"
+}

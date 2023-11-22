@@ -1,0 +1,249 @@
+{
+ "Metadata": {
+  "AWS::CloudFormation::Interface": {
+   "ParameterGroups": [],
+   "ParameterLabels": {}
+  },
+  "Comments": "",
+  "CreatedBy": "Carter Meyers (AWS)",
+  "Description": "This application deploys a Global RDS Aurora cluster.",
+  "LastUpdated": "November 22, 2023",
+  "Version": "v1.5"
+ },
+ "Outputs": {
+  "ApiHostExport": {
+   "Export": {
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       {
+        "Ref": "MainStackName"
+       },
+       "-DemoApiHost"
+      ]
+     ]
+    }
+   },
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:ssm:/",
+         {
+          "Ref": "MainStackName"
+         },
+         "/DemoAppApiId}}"
+        ]
+       ]
+      },
+      ".execute-api.",
+      {
+       "Ref": "AWS::Region"
+      },
+      ".amazonaws.com/",
+      "v1"
+     ]
+    ]
+   }
+  }
+ },
+ "Parameters": {
+  "CodeDownloadUrl": {
+   "Default": "https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip",
+   "Description": "The URL from which the supporting codebase can be downloaded. This codebase is used to deploy the demo dashboard.",
+   "Type": "String"
+  },
+  "DatabaseAdminPassword": {
+   "Description": "The password to be used for the RDS Aurora admin account.",
+   "NoEcho": true,
+   "Type": "String"
+  },
+  "DatabaseAdminUsername": {
+   "Default": "AuroraAdmin",
+   "Description": "The username to be used for the RDS Aurora admin account.",
+   "Type": "String"
+  },
+  "DemoDashboardUserEmail": {
+   "Description": "The email address you'll use to log into the dashboard. This is required if \"Deploy Demo Dashboard\" is set to \"Yes\".",
+   "Type": "String"
+  },
+  "DeployDemoDashboard": {
+   "AllowedValues": [
+    "No",
+    "Yes"
+   ],
+   "Default": "Yes",
+   "Description": "Would you like a demo application deployed along side this solution that will allow you to test the failover? INFO: Because of WAF service requirements, demo WAF and CloudFront resources will be deployed to us-east-1, regardless of which region you deploy this stack to.",
+   "Type": "String"
+  },
+  "GitHubGhSessionValue": {
+   "Description": "The value of your GitHub \"_gh_sess\" cookie. This parameter will be removed when the solution's GitHub repo is made public.",
+   "Type": "String"
+  },
+  "GitHubUserSessionValue": {
+   "Description": "The value of your GitHub \"user_session\" cookie. This parameter will be removed when the solution's GitHub repo is made public.",
+   "Type": "String"
+  },
+  "LambdaLayerArn": {
+   "Type": "String"
+  },
+  "MainStackName": {
+   "Type": "String"
+  },
+  "PrivateSubnetZoneACidr": {
+   "Default": "10.10.1.0/24",
+   "Description": "The CIDR range you wish to use for your primary private subnet.",
+   "Type": "String"
+  },
+  "PrivateSubnetZoneBCidr": {
+   "Default": "10.10.3.0/24",
+   "Description": "The CIDR range you wish to use for your failover private subnet.",
+   "Type": "String"
+  },
+  "PublicSubnetZoneACidr": {
+   "Default": "10.10.0.0/24",
+   "Description": "The CIDR range you wish to use for your primary public subnet.",
+   "Type": "String"
+  },
+  "PublicSubnetZoneBCidr": {
+   "Default": "10.10.2.0/24",
+   "Description": "The CIDR range you wish to use for your failover public subnet.",
+   "Type": "String"
+  },
+  "RegionalWafAclArn": {
+   "Type": "String"
+  },
+  "VpcCidr": {
+   "Default": "10.10.0.0/21",
+   "Description": "The CIDR range you wish to use for your VPC.",
+   "Type": "String"
+  }
+ },
+ "Resources": {
+  "Deployment": {
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W68",
+       "reason": "This API does not use API keys."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "Description": "Initial Deployment",
+    "RestApiId": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:ssm:/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/DemoAppApiId}}"
+      ]
+     ]
+    }
+   },
+   "Type": "AWS::ApiGateway::Deployment"
+  },
+  "DeploymentStage": {
+   "DependsOn": [
+    "Deployment"
+   ],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W69",
+       "reason": "This API does not use API keys."
+      },
+      {
+       "id": "W64",
+       "reason": "This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data."
+      }
+     ]
+    }
+   },
+   "Properties": {
+    "DeploymentId": {
+     "Ref": "Deployment"
+    },
+    "MethodSettings": [
+     {
+      "CachingEnabled": false,
+      "DataTraceEnabled": true,
+      "HttpMethod": "GET",
+      "MetricsEnabled": true,
+      "ResourcePath": "/~1",
+      "ThrottlingBurstLimit": "5000",
+      "ThrottlingRateLimit": "10000"
+     },
+     {
+      "CachingEnabled": false,
+      "DataTraceEnabled": true,
+      "HttpMethod": "POST",
+      "MetricsEnabled": true,
+      "ResourcePath": "/~1",
+      "ThrottlingBurstLimit": "5000",
+      "ThrottlingRateLimit": "10000"
+     }
+    ],
+    "RestApiId": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:ssm:/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/DemoAppApiId}}"
+      ]
+     ]
+    },
+    "StageName": "v1"
+   },
+   "Type": "AWS::ApiGateway::Stage"
+  },
+  "WafAssociation": {
+   "DependsOn": [
+    "DeploymentStage"
+   ],
+   "Properties": {
+    "ResourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":apigateway:",
+       {
+        "Ref": "AWS::Region"
+       },
+       "::/restapis/",
+       "{{resolve:ssm:/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/DemoAppApiId}}",
+       "/stages/",
+       "v1"
+      ]
+     ]
+    },
+    "WebACLArn": {
+     "Ref": "RegionalWafAclArn"
+    }
+   },
+   "Type": "AWS::WAFv2::WebACLAssociation"
+  }
+ }
+}

@@ -1,0 +1,511 @@
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups: []
+    ParameterLabels: {}
+  Comments: ''
+  CreatedBy: Carter Meyers (AWS)
+  Description: This application deploys a Global RDS Aurora cluster.
+  LastUpdated: November 22, 2023
+  Version: v1.5
+Outputs:
+  LambdaSecurityGroupId:
+    Condition: ''
+    Value: !Ref 'LambdaSecurityGroup'
+  PrivateRouteTableZoneAId:
+    Condition: ''
+    Value: !Ref 'PrivateRouteTableZoneA'
+  PrivateRouteTableZoneBId:
+    Condition: ''
+    Value: !Ref 'PrivateRouteTableZoneB'
+  PrivateSubnetZoneAId:
+    Condition: ''
+    Value: !Ref 'PrivateSubnetZoneA'
+  PrivateSubnetZoneBId:
+    Condition: ''
+    Value: !Ref 'PrivateSubnetZoneB'
+  PublicSubnetZoneAId:
+    Condition: ''
+    Value: !Ref 'PublicSubnetZoneA'
+  PublicSubnetZoneBId:
+    Condition: ''
+    Value: !Ref 'PublicSubnetZoneB'
+  VpcId:
+    Condition: ''
+    Export:
+      Name: !Join
+        - '-'
+        - - !Ref 'MainStackName'
+          - VpcId
+    Value: !Ref 'Vpc'
+Parameters:
+  CodeDownloadUrl:
+    Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
+    Description: The URL from which the supporting codebase can be downloaded. This codebase is used to deploy the demo dashboard.
+    Type: String
+  DatabaseAdminPassword:
+    Description: The password to be used for the RDS Aurora admin account.
+    NoEcho: true
+    Type: String
+  DatabaseAdminUsername:
+    Default: AuroraAdmin
+    Description: The username to be used for the RDS Aurora admin account.
+    Type: String
+  DemoDashboardUserEmail:
+    Description: The email address you'll use to log into the dashboard. This is required if "Deploy Demo Dashboard" is set to "Yes".
+    Type: String
+  DeployDemoDashboard:
+    AllowedValues:
+      - 'No'
+      - 'Yes'
+    Default: 'Yes'
+    Description: >-
+      Would you like a demo application deployed along side this solution that will allow you to test the failover? INFO: Because of WAF service requirements, demo WAF and CloudFront resources will be deployed
+      to us-east-1, regardless of which region you deploy this stack to.
+    Type: String
+  GitHubGhSessionValue:
+    Description: The value of your GitHub "_gh_sess" cookie. This parameter will be removed when the solution's GitHub repo is made public.
+    Type: String
+  GitHubUserSessionValue:
+    Description: The value of your GitHub "user_session" cookie. This parameter will be removed when the solution's GitHub repo is made public.
+    Type: String
+  LambdaLayerArn:
+    Type: String
+  MainStackName:
+    Type: String
+  PrivateSubnetZoneACidr:
+    Default: 10.10.1.0/24
+    Description: The CIDR range you wish to use for your primary private subnet.
+    Type: String
+  PrivateSubnetZoneBCidr:
+    Default: 10.10.3.0/24
+    Description: The CIDR range you wish to use for your failover private subnet.
+    Type: String
+  PublicSubnetZoneACidr:
+    Default: 10.10.0.0/24
+    Description: The CIDR range you wish to use for your primary public subnet.
+    Type: String
+  PublicSubnetZoneBCidr:
+    Default: 10.10.2.0/24
+    Description: The CIDR range you wish to use for your failover public subnet.
+    Type: String
+  RegionalWafAclArn:
+    Type: String
+  VpcCidr:
+    Default: 10.10.0.0/21
+    Description: The CIDR range you wish to use for your VPC.
+    Type: String
+Resources:
+  InternetGateway:
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Ref 'AWS::StackName'
+    Type: AWS::EC2::InternetGateway
+  InternetGatewayVpcAssociation:
+    DependsOn:
+      - Vpc
+      - InternetGateway
+    Properties:
+      InternetGatewayId: !Ref 'InternetGateway'
+      VpcId: !Ref 'Vpc'
+    Type: AWS::EC2::VPCGatewayAttachment
+  LambdaSecurityGroup:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W5
+            reason: Access to dynamic public IPs is required.
+    Properties:
+      GroupDescription: Lambda Security Group
+      SecurityGroupEgress:
+        - CidrIp: '0.0.0.0/0'
+          Description: All HTTP Traffic
+          IpProtocol: '-1'
+      SecurityGroupIngress: []
+      VpcId: !Ref 'Vpc'
+    Type: AWS::EC2::SecurityGroup
+  LambdaSecurityGroupIdParam:
+    Condition: ''
+    Properties:
+      Description: !Join
+        - ''
+        - - 'Lambda Security Group ID for '
+          - !Ref 'AWS::StackName'
+          - ' stack'
+      Name: !Join
+        - ''
+        - - /
+          - !Ref 'MainStackName'
+          - /
+          - LambdaSecurityGroupId
+      Tier: Standard
+      Type: String
+      Value: !Ref 'LambdaSecurityGroup'
+    Type: AWS::SSM::Parameter
+  NatGatewayZoneA:
+    DependsOn:
+      - PublicSubnetZoneA
+      - NatGatewayZoneAElasticIp
+    Properties:
+      AllocationId: !GetAtt 'NatGatewayZoneAElasticIp.AllocationId'
+      SubnetId: !Ref 'PublicSubnetZoneA'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - NatGatewayZoneA
+              - '-'
+              - !Ref 'AWS::StackName'
+    Type: AWS::EC2::NatGateway
+  NatGatewayZoneAElasticIp:
+    Properties:
+      Domain: vpc
+    Type: AWS::EC2::EIP
+  NatGatewayZoneB:
+    DependsOn:
+      - PublicSubnetZoneB
+      - NatGatewayZoneBElasticIp
+    Properties:
+      AllocationId: !GetAtt 'NatGatewayZoneBElasticIp.AllocationId'
+      SubnetId: !Ref 'PublicSubnetZoneB'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - NatGatewayZoneB
+              - '-'
+              - !Ref 'AWS::StackName'
+    Type: AWS::EC2::NatGateway
+  NatGatewayZoneBElasticIp:
+    Properties:
+      Domain: vpc
+    Type: AWS::EC2::EIP
+  PrivateRouteTableZoneA:
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - PrivateRouteTableZoneA
+              - '-'
+              - !Ref 'AWS::StackName'
+      VpcId: !Ref 'Vpc'
+    Type: AWS::EC2::RouteTable
+  PrivateRouteTableZoneAIdParam:
+    Condition: ''
+    Properties:
+      Description: !Join
+        - ''
+        - - 'ID of Private Route Table in Zone '
+          - A
+          - ' for '
+          - !Ref 'AWS::StackName'
+          - ' stack'
+      Name: !Join
+        - ''
+        - - /
+          - !Ref 'MainStackName'
+          - /
+          - PrivateRouteTableZoneAId
+      Tier: Standard
+      Type: String
+      Value: !Ref 'PrivateRouteTableZoneA'
+    Type: AWS::SSM::Parameter
+  PrivateRouteTableZoneB:
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - PrivateRouteTableZoneB
+              - '-'
+              - !Ref 'AWS::StackName'
+      VpcId: !Ref 'Vpc'
+    Type: AWS::EC2::RouteTable
+  PrivateRouteTableZoneBIdParam:
+    Condition: ''
+    Properties:
+      Description: !Join
+        - ''
+        - - 'ID of Private Route Table in Zone '
+          - B
+          - ' for '
+          - !Ref 'AWS::StackName'
+          - ' stack'
+      Name: !Join
+        - ''
+        - - /
+          - !Ref 'MainStackName'
+          - /
+          - PrivateRouteTableZoneBId
+      Tier: Standard
+      Type: String
+      Value: !Ref 'PrivateRouteTableZoneB'
+    Type: AWS::SSM::Parameter
+  PrivateSubnetRouteToNatGatewayZoneA:
+    DependsOn:
+      - NatGatewayZoneA
+      - PrivateRouteTableZoneA
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref 'NatGatewayZoneA'
+      RouteTableId: !Ref 'PrivateRouteTableZoneA'
+    Type: AWS::EC2::Route
+  PrivateSubnetRouteToNatGatewayZoneB:
+    DependsOn:
+      - NatGatewayZoneB
+      - PrivateRouteTableZoneB
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref 'NatGatewayZoneB'
+      RouteTableId: !Ref 'PrivateRouteTableZoneB'
+    Type: AWS::EC2::Route
+  PrivateSubnetZoneA:
+    DependsOn:
+      - Vpc
+    Properties:
+      AvailabilityZone: !Join
+        - ''
+        - - !Ref 'AWS::Region'
+          - a
+      CidrBlock: !Ref 'PrivateSubnetZoneACidr'
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - PrivateSubnetZoneA
+              - '-'
+              - !Ref 'AWS::StackName'
+      VpcId: !Ref 'Vpc'
+    Type: AWS::EC2::Subnet
+  PrivateSubnetZoneAIdParam:
+    Condition: ''
+    Properties:
+      Description: !Join
+        - ''
+        - - Private
+          - ' Subnet Zone '
+          - A
+          - ' for '
+          - !Ref 'AWS::StackName'
+          - ' stack'
+      Name: !Join
+        - ''
+        - - /
+          - !Ref 'MainStackName'
+          - /
+          - PrivateSubnetZoneAId
+      Tier: Standard
+      Type: String
+      Value: !Ref 'PrivateSubnetZoneA'
+    Type: AWS::SSM::Parameter
+  PrivateSubnetZoneATableAssociation:
+    DependsOn:
+      - Vpc
+      - PrivateSubnetZoneA
+      - PrivateRouteTableZoneA
+    Properties:
+      RouteTableId: !Ref 'PrivateRouteTableZoneA'
+      SubnetId: !Ref 'PrivateSubnetZoneA'
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  PrivateSubnetZoneB:
+    DependsOn:
+      - Vpc
+    Properties:
+      AvailabilityZone: !Join
+        - ''
+        - - !Ref 'AWS::Region'
+          - b
+      CidrBlock: !Ref 'PrivateSubnetZoneBCidr'
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - PrivateSubnetZoneB
+              - '-'
+              - !Ref 'AWS::StackName'
+      VpcId: !Ref 'Vpc'
+    Type: AWS::EC2::Subnet
+  PrivateSubnetZoneBIdParam:
+    Condition: ''
+    Properties:
+      Description: !Join
+        - ''
+        - - Private
+          - ' Subnet Zone '
+          - B
+          - ' for '
+          - !Ref 'AWS::StackName'
+          - ' stack'
+      Name: !Join
+        - ''
+        - - /
+          - !Ref 'MainStackName'
+          - /
+          - PrivateSubnetZoneBId
+      Tier: Standard
+      Type: String
+      Value: !Ref 'PrivateSubnetZoneB'
+    Type: AWS::SSM::Parameter
+  PrivateSubnetZoneBTableAssociation:
+    DependsOn:
+      - Vpc
+      - PrivateSubnetZoneB
+      - PrivateRouteTableZoneB
+    Properties:
+      RouteTableId: !Ref 'PrivateRouteTableZoneB'
+      SubnetId: !Ref 'PrivateSubnetZoneB'
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  PublicRouteTable:
+    DependsOn:
+      - Vpc
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - PublicRouteTable-
+              - !Ref 'AWS::StackName'
+      VpcId: !Ref 'Vpc'
+    Type: AWS::EC2::RouteTable
+  PublicRouteToInternet:
+    DependsOn:
+      - InternetGateway
+      - PublicRouteTable
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref 'InternetGateway'
+      RouteTableId: !Ref 'PublicRouteTable'
+    Type: AWS::EC2::Route
+  PublicSubnetZoneA:
+    DependsOn:
+      - Vpc
+    Properties:
+      AvailabilityZone: !Join
+        - ''
+        - - !Ref 'AWS::Region'
+          - a
+      CidrBlock: !Ref 'PublicSubnetZoneACidr'
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - PublicSubnetZoneA
+              - '-'
+              - !Ref 'AWS::StackName'
+      VpcId: !Ref 'Vpc'
+    Type: AWS::EC2::Subnet
+  PublicSubnetZoneAIdParam:
+    Condition: ''
+    Properties:
+      Description: !Join
+        - ''
+        - - Public
+          - ' Subnet Zone '
+          - A
+          - ' for '
+          - !Ref 'AWS::StackName'
+          - ' stack'
+      Name: !Join
+        - ''
+        - - /
+          - !Ref 'MainStackName'
+          - /
+          - PublicSubnetZoneAId
+      Tier: Standard
+      Type: String
+      Value: !Ref 'PublicSubnetZoneA'
+    Type: AWS::SSM::Parameter
+  PublicSubnetZoneATableAssociation:
+    DependsOn:
+      - Vpc
+      - PublicSubnetZoneA
+      - PublicRouteTable
+    Properties:
+      RouteTableId: !Ref 'PublicRouteTable'
+      SubnetId: !Ref 'PublicSubnetZoneA'
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  PublicSubnetZoneB:
+    DependsOn:
+      - Vpc
+    Properties:
+      AvailabilityZone: !Join
+        - ''
+        - - !Ref 'AWS::Region'
+          - b
+      CidrBlock: !Ref 'PublicSubnetZoneBCidr'
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - ''
+            - - PublicSubnetZoneB
+              - '-'
+              - !Ref 'AWS::StackName'
+      VpcId: !Ref 'Vpc'
+    Type: AWS::EC2::Subnet
+  PublicSubnetZoneBIdParam:
+    Condition: ''
+    Properties:
+      Description: !Join
+        - ''
+        - - Public
+          - ' Subnet Zone '
+          - B
+          - ' for '
+          - !Ref 'AWS::StackName'
+          - ' stack'
+      Name: !Join
+        - ''
+        - - /
+          - !Ref 'MainStackName'
+          - /
+          - PublicSubnetZoneBId
+      Tier: Standard
+      Type: String
+      Value: !Ref 'PublicSubnetZoneB'
+    Type: AWS::SSM::Parameter
+  PublicSubnetZoneBTableAssociation:
+    DependsOn:
+      - Vpc
+      - PublicSubnetZoneB
+      - PublicRouteTable
+    Properties:
+      RouteTableId: !Ref 'PublicRouteTable'
+      SubnetId: !Ref 'PublicSubnetZoneB'
+    Type: AWS::EC2::SubnetRouteTableAssociation
+  Vpc:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W60
+            reason: This VPC is being deployed to support an ephemeral demo environment that does not require VPC flow log analysis.
+    Properties:
+      CidrBlock: !Ref 'VpcCidr'
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Ref 'AWS::StackName'
+    Type: AWS::EC2::VPC
+  VpcIdParam:
+    Condition: ''
+    Properties:
+      Description: !Join
+        - ''
+        - - 'VPC for '
+          - !Ref 'AWS::StackName'
+          - ' stack'
+      Name: !Join
+        - ''
+        - - /
+          - !Ref 'MainStackName'
+          - /
+          - VpcId
+      Tier: Standard
+      Type: String
+      Value: !Ref 'Vpc'
+    Type: AWS::SSM::Parameter
