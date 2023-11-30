@@ -60,8 +60,8 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This template deploys a 0-RPO database architecture using Amazon RDS, Amazon SQS, AWS Lambda, and Amazon API Gateway.
-  LastUpdated: November 22, 2023
-  Version: v1.5
+  LastUpdated: November 30, 2023
+  Version: v1.6
 Outputs:
   CloudWatchDashboardUrl:
     Description: CloudWatch Dashboard URL
@@ -150,15 +150,15 @@ Resources:
         - x86_64
       Code:
         ZipFile: "# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.\n# SPDX-License-Identifier: MIT-0\n\nimport sys\nimport subprocess\n\nsubprocess.call('pip install urllib3<2 cfnresponse\
-          \ -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)\nsys.path.insert(1, '/tmp/')\n\nimport io\nimport os\nimport json\nimport boto3\nimport cfnresponse\n\
-          from botocore.exceptions import ClientError, ParamValidationError\n\n'''\n    - Region | str\n    - ExportPrefix | str\n'''\ndef handler(event, context):\n    \n    print(json.dumps(event))\n\
-          \    \n    arguments = event['ResourceProperties']['Properties']\n    operation = event['ResourceProperties']['Type'].replace('Custom::', '')\n    \n    response_data = {}\n    \n    boto3Session\
-          \ = boto3.Session(\n        region_name = arguments['Region']\n    )\n    \n    cfn_client = boto3Session.client('cloudformation')\n    \n    if event['RequestType'] in ['Create', 'Update']:\n\
-          \        \n        try:\n            \n            response = cfn_client.list_exports()\n            \n            '''\n                For each CloudFormation export in this region\n        \
-          \    '''\n            for export in response['Exports']:\n            \t\n                '''\n                    If this export has the proper prefix\n                '''\n                if\
-          \ export['Name'].startswith(arguments['ExportPrefix']):\n                    \n                    response_data[export['Name'].replace(arguments['ExportPrefix'] + '-', '')] = export['Value']\n\
-          \                \n        except ClientError as e:\n            \n            print('Failed to Retrieve CFN Exports: ' + str(e.response))\n            return cfnresponse.send(event, context,\
-          \ cfnresponse.FAILED, response_data)\n            \n    return cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)"
+          \ -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL) # nosec Not subject to user input\nsys.path.insert(1, '/tmp/') # nosec Required for module import\n\
+          \nimport io\nimport os\nimport json\nimport boto3\nimport cfnresponse\nfrom botocore.exceptions import ClientError, ParamValidationError\n\n'''\n    - Region | str\n    - ExportPrefix | str\n\
+          '''\ndef handler(event, context):\n    \n    print(json.dumps(event))\n    \n    arguments = event['ResourceProperties']['Properties']\n    operation = event['ResourceProperties']['Type'].replace('Custom::',\
+          \ '')\n    \n    response_data = {}\n    \n    boto3Session = boto3.Session(\n        region_name = arguments['Region']\n    )\n    \n    cfn_client = boto3Session.client('cloudformation')\n \
+          \   \n    if event['RequestType'] in ['Create', 'Update']:\n        \n        try:\n            \n            response = cfn_client.list_exports()\n            \n            '''\n            \
+          \    For each CloudFormation export in this region\n            '''\n            for export in response['Exports']:\n            \t\n                '''\n                    If this export has\
+          \ the proper prefix\n                '''\n                if export['Name'].startswith(arguments['ExportPrefix']):\n                    \n                    response_data[export['Name'].replace(arguments['ExportPrefix']\
+          \ + '-', '')] = export['Value']\n                \n        except ClientError as e:\n            \n            print('Failed to Retrieve CFN Exports: ' + str(e.response))\n            return cfnresponse.send(event,\
+          \ context, cfnresponse.FAILED, response_data)\n            \n    return cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)"
       Description: ''
       Handler: index.handler
       Layers: []
@@ -331,8 +331,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This application deploys a Global RDS Aurora cluster.
-          LastUpdated: November 22, 2023
-          Version: v1.5
+          LastUpdated: November 30, 2023
+          Version: v1.6
         Outputs:
           CoreAppHandlerName:
             Condition: ''
@@ -991,8 +991,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the app and demo databases (if applicable)
-          LastUpdated: November 22, 2023
-          Version: v1.5
+          LastUpdated: November 30, 2023
+          Version: v1.6
         Outputs:
           AppDbAdminSecretArn:
             Condition: ''
@@ -1527,17 +1527,17 @@ Resources:
                 - x86_64
               Code:
                 ZipFile: "# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.\n# SPDX-License-Identifier: MIT-0\n\nimport sys\nsys.path.append('/opt')\n\nimport subprocess\nsubprocess.call('pip\
-                  \ install urllib3<2 -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)\nsys.path.insert(1, '/tmp/')\n\nimport os\nimport json\nimport boto3\nimport psycopg2\n\
-                  import cfnresponse\nimport multi_region_db\nfrom botocore.exceptions import ClientError as boto3_client_error\n\ncustom_functions = multi_region_db.Functions()\n\n'''\n    RDSAdminSecretArn\n\
-                  '''\ndef handler(event, context):\n    \n    print(json.dumps(event))\n    \n    if 'Properties' in event['ResourceProperties']:\n        arguments = event['ResourceProperties']['Properties']\n\
-                  \        \n    operation = event['ResourceProperties']['Type'].replace('Custom::', '')\n    \n    response_data = {}\n    \n    if event['RequestType'] in ['Create', 'Update']:\n        \n   \
-                  \     db_credentials = custom_functions.get_db_credentials(arguments['DatabaseIdentifier'])\n        \n        try:\n                \n            db_conn = psycopg2.connect(\n               \
-                  \ host = db_credentials['host'],\n                port = db_credentials['port'],\n                user = db_credentials['username'],\n                password = db_credentials['password'],\n \
-                  \               database = db_credentials['database'],\n                connect_timeout = 3,\n                sslmode = 'require',\n            )\n            \n            curs = db_conn.cursor()\n\
-                  \            \n            for query in arguments['QueriesToExecute']:\n                \n                # nosemgrep - Not subject to user input\n                curs.execute(query.replace('\\\
-                  r','').replace('\\n',' '))\n                db_conn.commit()\n            \n            curs.close()\n            db_conn.close()\n        \n        except Exception as error:\n\n            print('There\
-                  \ was a problem executing the DDL statements: ' + str(error))\n            return cfnresponse.send(event, context, cfnresponse.FAILED, response_data)\n            \n    return cfnresponse.send(event,\
-                  \ context, cfnresponse.SUCCESS, response_data)"
+                  \ install urllib3<2 -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL) # nosec Not subject to user input\nsys.path.insert(1, '/tmp/') # nosec Required\
+                  \ for package inclusion\n\nimport os\nimport json\nimport boto3\nimport psycopg2\nimport cfnresponse\nimport multi_region_db\nfrom botocore.exceptions import ClientError as boto3_client_error\n\
+                  \ncustom_functions = multi_region_db.Functions()\n\n'''\n    RDSAdminSecretArn\n'''\ndef handler(event, context):\n    \n    print(json.dumps(event))\n    \n    if 'Properties' in event['ResourceProperties']:\n\
+                  \        arguments = event['ResourceProperties']['Properties']\n        \n    operation = event['ResourceProperties']['Type'].replace('Custom::', '')\n    \n    response_data = {}\n    \n    if\
+                  \ event['RequestType'] in ['Create', 'Update']:\n        \n        db_credentials = custom_functions.get_db_credentials(arguments['DatabaseIdentifier'])\n        \n        try:\n             \
+                  \   \n            db_conn = psycopg2.connect(\n                host = db_credentials['host'],\n                port = db_credentials['port'],\n                user = db_credentials['username'],\n\
+                  \                password = db_credentials['password'],\n                database = db_credentials['database'],\n                connect_timeout = 3,\n                sslmode = 'require',\n  \
+                  \          )\n            \n            curs = db_conn.cursor()\n            \n            for query in arguments['QueriesToExecute']:\n                \n                # nosemgrep - Not subject\
+                  \ to user input\n                curs.execute(query.replace('\\r','').replace('\\n',' '))\n                db_conn.commit()\n            \n            curs.close()\n            db_conn.close()\n\
+                  \        \n        except Exception as error:\n\n            print('There was a problem executing the DDL statements: ' + str(error))\n            return cfnresponse.send(event, context, cfnresponse.FAILED,\
+                  \ response_data)\n            \n    return cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)"
               Description: Executes DDL statements against new DB clusters to create necessary schema
               Environment:
                 Variables:
@@ -1624,12 +1624,19 @@ Resources:
           DbClusterSecurityGroup:
             DependsOn:
               - DbProxySecurityGroup
+            Metadata:
+              cfn_nag:
+                rules_to_suppress:
+                  - id: W5
+                    reason: Access to dynamic public IPs is required.
             Properties:
               GroupDescription: RDS Security Group
               SecurityGroupEgress:
                 - CidrIp: '0.0.0.0/0'
-                  Description: All Traffic
-                  IpProtocol: '-1'
+                  Description: HTTPS to RDS Service
+                  FromPort: 443
+                  IpProtocol: tcp
+                  ToPort: 443
               SecurityGroupIngress:
                 - Description: DB Access from In-Region Lambda Functions
                   FromPort: 5432
@@ -1644,24 +1651,6 @@ Resources:
                   FromPort: 5432
                   IpProtocol: tcp
                   SourceSecurityGroupId: !Ref 'DbProxySecurityGroup'
-                  ToPort: 5432
-                - CidrIp: !Ref 'PrivateSubnetZoneACidr'
-                  Description: !Join
-                    - ''
-                    - - 'DB Access from Lambda Functions in '
-                      - !Ref 'AWS::Region'
-                      - a
-                  FromPort: 5432
-                  IpProtocol: tcp
-                  ToPort: 5432
-                - CidrIp: !Ref 'PrivateSubnetZoneBCidr'
-                  Description: !Join
-                    - ''
-                    - - 'DB Access from Lambda Functions in '
-                      - !Ref 'AWS::Region'
-                      - b
-                  FromPort: 5432
-                  IpProtocol: tcp
                   ToPort: 5432
               VpcId: !Join
                 - ''
@@ -1698,12 +1687,14 @@ Resources:
                   PolicyName: main-policy
             Type: AWS::IAM::Role
           DbProxySecurityGroup:
+            Metadata:
+              cfn_nag:
+                rules_to_suppress:
+                  - id: W5
+                    reason: Access to dynamic public IPs is required.
             Properties:
               GroupDescription: RDS Proxy Security Group
-              SecurityGroupEgress:
-                - CidrIp: '0.0.0.0/0'
-                  Description: All Traffic
-                  IpProtocol: '-1'
+              SecurityGroupEgress: []
               SecurityGroupIngress:
                 - Description: DB Access from Lambda
                   FromPort: 5432
@@ -1714,30 +1705,24 @@ Resources:
                       - !Ref 'MainStackName'
                       - /LambdaSecurityGroupId}}
                   ToPort: 5432
-                - CidrIp: !Ref 'PrivateSubnetZoneACidr'
-                  Description: !Join
-                    - ''
-                    - - 'DB Access from Lambda Functions in '
-                      - !Ref 'AWS::Region'
-                      - a
-                  FromPort: 5432
-                  IpProtocol: tcp
-                  ToPort: 5432
-                - CidrIp: !Ref 'PrivateSubnetZoneBCidr'
-                  Description: !Join
-                    - ''
-                    - - 'DB Access from Lambda Functions in '
-                      - !Ref 'AWS::Region'
-                      - b
-                  FromPort: 5432
-                  IpProtocol: tcp
-                  ToPort: 5432
               VpcId: !Join
                 - ''
                 - - '{{resolve:ssm:/'
                   - !Ref 'MainStackName'
                   - /VpcId}}
             Type: AWS::EC2::SecurityGroup
+          DbProxySecurityGroupEgressToDB:
+            DependsOn:
+              - DbProxySecurityGroup
+              - DbClusterSecurityGroup
+            Properties:
+              Description: TCP Traffic to Source DB
+              DestinationSecurityGroupId: !Ref 'DbClusterSecurityGroup'
+              FromPort: 5432
+              GroupId: !Ref 'DbProxySecurityGroup'
+              IpProtocol: tcp
+              ToPort: 5432
+            Type: AWS::EC2::SecurityGroupEgress
           DbSubnetGroup:
             Properties:
               DBSubnetGroupDescription: Private Database Subnets
@@ -2084,8 +2069,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the demo API Gateway API
-          LastUpdated: November 22, 2023
-          Version: v1.5
+          LastUpdated: November 30, 2023
+          Version: v1.6
         Outputs:
           ApiHostExport:
             Export:
@@ -2299,8 +2284,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template provisions the demo API Gateway
-          LastUpdated: November 22, 2023
-          Version: v1.5
+          LastUpdated: November 30, 2023
+          Version: v1.6
         Outputs:
           ApiRootResourceId:
             Condition: ''
@@ -2499,8 +2484,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template provisions the demo API methods and handlers
-          LastUpdated: November 22, 2023
-          Version: v1.5
+          LastUpdated: November 30, 2023
+          Version: v1.6
         Parameters:
           CodeDownloadUrl:
             Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -3610,8 +3595,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template provisions the demo API methods and handlers
-          LastUpdated: November 22, 2023
-          Version: v1.5
+          LastUpdated: November 30, 2023
+          Version: v1.6
         Parameters:
           CodeDownloadUrl:
             Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -4719,8 +4704,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the demo CloudFront Distrubtion and dashboard
-          LastUpdated: November 22, 2023
-          Version: v1.5
+          LastUpdated: November 30, 2023
+          Version: v1.6
         Outputs:
           CloudFrontCdnWebsiteExport:
             Export:
@@ -4987,8 +4972,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the handles that facilitate the demo failover tracking.
-          LastUpdated: November 22, 2023
-          Version: v1.5
+          LastUpdated: November 30, 2023
+          Version: v1.6
         Parameters:
           CodeDownloadUrl:
             Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -5676,8 +5661,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the VPC and other networking resources required to host the application
-          LastUpdated: November 22, 2023
-          Version: v1.5
+          LastUpdated: November 30, 2023
+          Version: v1.6
         Outputs:
           LambdaSecurityGroupId:
             Condition: ''
@@ -5790,8 +5775,15 @@ Resources:
               GroupDescription: Lambda Security Group
               SecurityGroupEgress:
                 - CidrIp: '0.0.0.0/0'
-                  Description: All HTTP Traffic
-                  IpProtocol: '-1'
+                  Description: All HTTPs Traffic
+                  FromPort: 443
+                  IpProtocol: tcp
+                  ToPort: 443
+                - CidrIp: '0.0.0.0/0'
+                  Description: Database Traffic
+                  FromPort: 5432
+                  IpProtocol: tcp
+                  ToPort: 5432
               SecurityGroupIngress: []
               VpcId: !Ref 'Vpc'
             Type: AWS::EC2::SecurityGroup
@@ -6244,6 +6236,31 @@ Resources:
             Principal:
               AWS:
                 - !Ref 'AWS::AccountId'
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AdministratorAccess
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - s3:*
+                  - kms:*
+                  - ec2:*
+                  - rds:*
+                  - ssm:*
+                  - sqs:*
+                  - sns:*
+                  - iam:*
+                  - logs:*
+                  - wafv2:*
+                  - events:*
+                  - lambda:*
+                  - cloudwatch:*
+                  - cloudfront:*
+                  - apigateway:*
+                  - cognito-idp:*
+                  - serverlessrepo:*
+                  - cloudformation:*
+                  - secretsmanager:*
+                Effect: Allow
+                Resource:
+                  - '*'
+          PolicyName: main-policy
     Type: AWS::IAM::Role

@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template deploys the app and demo databases (if applicable)",
-  "LastUpdated": "November 22, 2023",
-  "Version": "v1.5"
+  "LastUpdated": "November 30, 2023",
+  "Version": "v1.6"
  },
  "Outputs": {
   "AppDbAdminSecretArn": {
@@ -1095,7 +1095,7 @@
      "x86_64"
     ],
     "Code": {
-     "ZipFile": "# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.\n# SPDX-License-Identifier: MIT-0\n\nimport sys\nsys.path.append('/opt')\n\nimport subprocess\nsubprocess.call('pip install urllib3<2 -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)\nsys.path.insert(1, '/tmp/')\n\nimport os\nimport json\nimport boto3\nimport psycopg2\nimport cfnresponse\nimport multi_region_db\nfrom botocore.exceptions import ClientError as boto3_client_error\n\ncustom_functions = multi_region_db.Functions()\n\n'''\n    RDSAdminSecretArn\n'''\ndef handler(event, context):\n    \n    print(json.dumps(event))\n    \n    if 'Properties' in event['ResourceProperties']:\n        arguments = event['ResourceProperties']['Properties']\n        \n    operation = event['ResourceProperties']['Type'].replace('Custom::', '')\n    \n    response_data = {}\n    \n    if event['RequestType'] in ['Create', 'Update']:\n        \n        db_credentials = custom_functions.get_db_credentials(arguments['DatabaseIdentifier'])\n        \n        try:\n                \n            db_conn = psycopg2.connect(\n                host = db_credentials['host'],\n                port = db_credentials['port'],\n                user = db_credentials['username'],\n                password = db_credentials['password'],\n                database = db_credentials['database'],\n                connect_timeout = 3,\n                sslmode = 'require',\n            )\n            \n            curs = db_conn.cursor()\n            \n            for query in arguments['QueriesToExecute']:\n                \n                # nosemgrep - Not subject to user input\n                curs.execute(query.replace('\\r','').replace('\\n',' '))\n                db_conn.commit()\n            \n            curs.close()\n            db_conn.close()\n        \n        except Exception as error:\n\n            print('There was a problem executing the DDL statements: ' + str(error))\n            return cfnresponse.send(event, context, cfnresponse.FAILED, response_data)\n            \n    return cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)"
+     "ZipFile": "# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.\n# SPDX-License-Identifier: MIT-0\n\nimport sys\nsys.path.append('/opt')\n\nimport subprocess\nsubprocess.call('pip install urllib3<2 -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL) # nosec Not subject to user input\nsys.path.insert(1, '/tmp/') # nosec Required for package inclusion\n\nimport os\nimport json\nimport boto3\nimport psycopg2\nimport cfnresponse\nimport multi_region_db\nfrom botocore.exceptions import ClientError as boto3_client_error\n\ncustom_functions = multi_region_db.Functions()\n\n'''\n    RDSAdminSecretArn\n'''\ndef handler(event, context):\n    \n    print(json.dumps(event))\n    \n    if 'Properties' in event['ResourceProperties']:\n        arguments = event['ResourceProperties']['Properties']\n        \n    operation = event['ResourceProperties']['Type'].replace('Custom::', '')\n    \n    response_data = {}\n    \n    if event['RequestType'] in ['Create', 'Update']:\n        \n        db_credentials = custom_functions.get_db_credentials(arguments['DatabaseIdentifier'])\n        \n        try:\n                \n            db_conn = psycopg2.connect(\n                host = db_credentials['host'],\n                port = db_credentials['port'],\n                user = db_credentials['username'],\n                password = db_credentials['password'],\n                database = db_credentials['database'],\n                connect_timeout = 3,\n                sslmode = 'require',\n            )\n            \n            curs = db_conn.cursor()\n            \n            for query in arguments['QueriesToExecute']:\n                \n                # nosemgrep - Not subject to user input\n                curs.execute(query.replace('\\r','').replace('\\n',' '))\n                db_conn.commit()\n            \n            curs.close()\n            db_conn.close()\n        \n        except Exception as error:\n\n            print('There was a problem executing the DDL statements: ' + str(error))\n            return cfnresponse.send(event, context, cfnresponse.FAILED, response_data)\n            \n    return cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)"
     },
     "Description": "Executes DDL statements against new DB clusters to create necessary schema",
     "Environment": {
@@ -1272,13 +1272,25 @@
    "DependsOn": [
     "DbProxySecurityGroup"
    ],
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W5",
+       "reason": "Access to dynamic public IPs is required."
+      }
+     ]
+    }
+   },
    "Properties": {
     "GroupDescription": "RDS Security Group",
     "SecurityGroupEgress": [
      {
       "CidrIp": "0.0.0.0/0",
-      "Description": "All Traffic",
-      "IpProtocol": "-1"
+      "Description": "HTTPS to RDS Service",
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
      }
     ],
     "SecurityGroupIngress": [
@@ -1307,46 +1319,6 @@
       "SourceSecurityGroupId": {
        "Ref": "DbProxySecurityGroup"
       },
-      "ToPort": 5432
-     },
-     {
-      "CidrIp": {
-       "Ref": "PrivateSubnetZoneACidr"
-      },
-      "Description": {
-       "Fn::Join": [
-        "",
-        [
-         "DB Access from Lambda Functions in ",
-         {
-          "Ref": "AWS::Region"
-         },
-         "a"
-        ]
-       ]
-      },
-      "FromPort": 5432,
-      "IpProtocol": "tcp",
-      "ToPort": 5432
-     },
-     {
-      "CidrIp": {
-       "Ref": "PrivateSubnetZoneBCidr"
-      },
-      "Description": {
-       "Fn::Join": [
-        "",
-        [
-         "DB Access from Lambda Functions in ",
-         {
-          "Ref": "AWS::Region"
-         },
-         "b"
-        ]
-       ]
-      },
-      "FromPort": 5432,
-      "IpProtocol": "tcp",
       "ToPort": 5432
      }
     ],
@@ -1424,15 +1396,19 @@
    "Type": "AWS::IAM::Role"
   },
   "DbProxySecurityGroup": {
+   "Metadata": {
+    "cfn_nag": {
+     "rules_to_suppress": [
+      {
+       "id": "W5",
+       "reason": "Access to dynamic public IPs is required."
+      }
+     ]
+    }
+   },
    "Properties": {
     "GroupDescription": "RDS Proxy Security Group",
-    "SecurityGroupEgress": [
-     {
-      "CidrIp": "0.0.0.0/0",
-      "Description": "All Traffic",
-      "IpProtocol": "-1"
-     }
-    ],
+    "SecurityGroupEgress": [],
     "SecurityGroupIngress": [
      {
       "Description": "DB Access from Lambda",
@@ -1451,46 +1427,6 @@
        ]
       },
       "ToPort": 5432
-     },
-     {
-      "CidrIp": {
-       "Ref": "PrivateSubnetZoneACidr"
-      },
-      "Description": {
-       "Fn::Join": [
-        "",
-        [
-         "DB Access from Lambda Functions in ",
-         {
-          "Ref": "AWS::Region"
-         },
-         "a"
-        ]
-       ]
-      },
-      "FromPort": 5432,
-      "IpProtocol": "tcp",
-      "ToPort": 5432
-     },
-     {
-      "CidrIp": {
-       "Ref": "PrivateSubnetZoneBCidr"
-      },
-      "Description": {
-       "Fn::Join": [
-        "",
-        [
-         "DB Access from Lambda Functions in ",
-         {
-          "Ref": "AWS::Region"
-         },
-         "b"
-        ]
-       ]
-      },
-      "FromPort": 5432,
-      "IpProtocol": "tcp",
-      "ToPort": 5432
      }
     ],
     "VpcId": {
@@ -1507,6 +1443,25 @@
     }
    },
    "Type": "AWS::EC2::SecurityGroup"
+  },
+  "DbProxySecurityGroupEgressToDB": {
+   "DependsOn": [
+    "DbProxySecurityGroup",
+    "DbClusterSecurityGroup"
+   ],
+   "Properties": {
+    "Description": "TCP Traffic to Source DB",
+    "DestinationSecurityGroupId": {
+     "Ref": "DbClusterSecurityGroup"
+    },
+    "FromPort": 5432,
+    "GroupId": {
+     "Ref": "DbProxySecurityGroup"
+    },
+    "IpProtocol": "tcp",
+    "ToPort": 5432
+   },
+   "Type": "AWS::EC2::SecurityGroupEgress"
   },
   "DbSubnetGroup": {
    "Properties": {

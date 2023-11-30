@@ -5,8 +5,8 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This template deploys the VPC and other networking resources required to host the application
-  LastUpdated: November 22, 2023
-  Version: v1.5
+  LastUpdated: November 30, 2023
+  Version: v1.6
 Outputs:
   LambdaSecurityGroupId:
     Condition: ''
@@ -119,8 +119,15 @@ Resources:
       GroupDescription: Lambda Security Group
       SecurityGroupEgress:
         - CidrIp: '0.0.0.0/0'
-          Description: All HTTP Traffic
-          IpProtocol: '-1'
+          Description: All HTTPs Traffic
+          FromPort: 443
+          IpProtocol: tcp
+          ToPort: 443
+        - CidrIp: '0.0.0.0/0'
+          Description: Database Traffic
+          FromPort: 5432
+          IpProtocol: tcp
+          ToPort: 5432
       SecurityGroupIngress: []
       VpcId: !Ref 'Vpc'
     Type: AWS::EC2::SecurityGroup
