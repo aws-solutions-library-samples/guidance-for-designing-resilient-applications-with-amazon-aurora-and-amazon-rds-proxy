@@ -4,8 +4,8 @@
 import sys
 import subprocess
 
-subprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
-sys.path.insert(1, '/tmp/')
+subprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL) # nosec Not subject to user input
+sys.path.insert(1, '/tmp/') # nosec Required for modeul import
 
 import os
 import json
@@ -43,7 +43,7 @@ def handler(event, context):
     
     if event['RequestType'] in ['Create', 'Update']:
         
-        path_to_local_zip = '/tmp/demo_ui_code.zip'
+        path_to_local_zip = '/tmp/demo_ui_code.zip' # nosec Required to download dashboard code
         path_to_local_dir = path_to_local_zip.replace('.zip', '')
         
         '''

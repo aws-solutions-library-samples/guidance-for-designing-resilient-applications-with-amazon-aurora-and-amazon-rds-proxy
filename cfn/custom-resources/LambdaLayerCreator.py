@@ -4,8 +4,8 @@
 import sys
 import subprocess
 
-subprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
-sys.path.insert(1, '/tmp/')
+subprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL) # nosec Not subject to user input
+sys.path.insert(1, '/tmp/') # nosec Required for cfnresponse import
 
 import io
 import os
@@ -57,16 +57,16 @@ def handler(event, context):
     
     if event['RequestType'] in ['Create', 'Update']:
         
-        subprocess.call(('pip install ' + ' '.join(arguments['Packages']) + ' -t /tmp/lambda-layer --no-cache-dir').split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
+        subprocess.call(('pip install ' + ' '.join(arguments['Packages']) + ' -t /tmp/lambda-layer --no-cache-dir').split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL) # nosec Input is controlled from within the invoking CFN template
         
-        shutil.copyfile(os.path.realpath(__file__), '/tmp/lambda-layer/multi_region_db.py')
+        shutil.copyfile(os.path.realpath(__file__), '/tmp/lambda-layer/multi_region_db.py') # nosec Not subject to user input
         
         try:
             
             response = lambda_client.publish_layer_version(
                 LayerName = arguments['LayerName'],
                 Content = {
-                    'ZipFile': make_zip_file_bytes('/tmp/lambda-layer')
+                    'ZipFile': make_zip_file_bytes('/tmp/lambda-layer') # nosec Not subject to user input
                 },
                 CompatibleRuntimes = [
                     'python3.9',

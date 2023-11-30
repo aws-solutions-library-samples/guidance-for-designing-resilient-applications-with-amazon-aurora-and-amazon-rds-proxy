@@ -4,8 +4,8 @@
 import sys
 import subprocess
 
-subprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
-sys.path.insert(1, '/tmp/')
+subprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(), stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL) # nosec Not subject to user input
+sys.path.insert(1, '/tmp/') # nosec Required for module import
 
 import io
 import os
