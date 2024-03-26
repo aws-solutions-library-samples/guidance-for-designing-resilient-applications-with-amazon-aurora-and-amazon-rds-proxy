@@ -23,7 +23,7 @@ The guidance outlines a design pattern for applications that require a near-zero
 
 Data loss, particularly during database failures, is a significant challenge for applications. Even with the use of highly available and fault-tolerant storage like Amazon Aurora, data loss can occur if the primary database instance fails. In such cases, Aurora automatically triggers a failover mechanism, rerouting requests to a secondary instance. This failover event can cause a brief interruption, during which read and write operations may fail, potentially leading to data loss. To mitigate this, data is temporarily persisted in an Amazon SQS and written to a database instance when available. The guide recommends using Amazon SQS to store data during failover, thereby reducing data loss.
 
-
+![Architecture](/assets/Images/architecture.jpeg)
 
 The solution is structured around two key applications: the ‘Demo App’ and the ‘Core App’. The ‘Demo App’ is a comprehensive suite of user interface pages, fortified by cloud services for enhanced security. The ‘Core App’ is designed to temporarily store requests in Amazon SQS and consistently commit data to an Aurora instance, ensuring data availability before, during, and after any failover events. 
 
