@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template deploys the demo CloudFront Distrubtion and dashboard",
-  "LastUpdated": "November 30, 2023",
-  "Version": "v1.6"
+  "LastUpdated": "April 03, 2024",
+  "Version": "v1.7"
  },
  "Outputs": {
   "CloudFrontCdnWebsiteExport": {
@@ -148,7 +148,7 @@
      "x86_64"
     ],
     "Code": {
-     "ZipFile": "import sys,subprocess\nsubprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)\nsys.path.insert(1,'/tmp/')\nimport os,json,glob,boto3,shutil,urllib3,zipfile,mimetypes,cfnresponse\nfrom collections import defaultdict\nfrom botocore.exceptions import ClientError as boto3_client_error\nhttp=urllib3.PoolManager()\ntry:from urllib2 import HTTPError,build_opener,HTTPHandler,Request\nexcept ImportError:from urllib.error import HTTPError;from urllib.request import build_opener,HTTPHandler,Request\n'\\n    - CodeBucketName | str\\n    - CodeDownloadUrl | str\\n'\ndef handler(event,context):\n\tT='VersionId';S='Key';R='RequestType';K='CodeBucketName';C=context;A=event;print(json.dumps(A));D=A['ResourceProperties']['Properties'];F=boto3.client('s3');E={}\n\tif A[R]in['Create','Update']:\n\t\tG='/tmp/demo_ui_code.zip';L=G.replace('.zip','');'\\n            Download the codebase\\n        ';U=urllib3.PoolManager();H=U.request('GET',D['CodeDownloadUrl'],preload_content=False,headers={'Cookie':'_gh_sess={}; user_session={}'.format(os.environ['GITHUB_GH_SESSION_COOKIE'],os.environ['GITHUB_USER_SESSION_COOKIE'])})\n\t\tif H.status!=200:print('Failed to Download Demo UI Code: HTTP Code '+str(H.status));return cfnresponse.send(A,C,cfnresponse.FAILED,E)\n\t\twith H as V,open(G,'wb')as W:shutil.copyfileobj(V,W)\n\t\t'\\n            Unzip the downloaded code\\n        '\n\t\twith zipfile.ZipFile(G,'r')as X:X.extractall(L)\n\t\tM='/demo/dashboard-ui/';'\\n            For each file in the local code directory\\n        '\n\t\tfor B in glob.iglob(L+'**/**',recursive=True):\n\t\t\t\"\\n                If it's one of the dashboard files and it's a file, not a directory, we'll upload it to S3\\n            \"\n\t\t\tif M in B and os.path.isfile(B):\n\t\t\t\ttry:Y=B.split(M)[1];F.upload_file(B,D[K],Y,ExtraArgs={'ContentType':mimetypes.guess_type(B)[0]})\n\t\t\t\texcept boto3_client_error as I:print('Failed to Upload Dashboard File: '+str(I));return cfnresponse.send(A,C,cfnresponse.FAILED,E)\n\telif A[R]in['Delete']:\n\t\t\"\\n            Here, we'll delete all objects, versions, and delete markers from the bucket.\\n        \";Z=F.get_paginator('list_object_versions');J=[]\n\t\tfor N in Z.paginate(Bucket=D[K]):\n\t\t\tfor O in['Versions','DeleteMarkers']:\n\t\t\t\tif O in N:\n\t\t\t\t\tfor P in N[O]:J.append({S:P[S],T:P[T]})\n\t\tfor Q in range(0,len(J),1000):\n\t\t\ttry:a=F.delete_objects(Bucket=D[K],Delete={'Objects':J[Q:Q+1000],'Quiet':True})\n\t\t\texcept boto3_client_error as I:print('Failed to Delete S3 Objects: '+str(I));return cfnresponse.send(A,C,cfnresponse.FAILED,E)\n\treturn cfnresponse.send(A,C,cfnresponse.SUCCESS,E)"
+     "ZipFile": "import sys,subprocess\nsubprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)\nsys.path.insert(1,'/tmp/')\nimport os,json,glob,boto3,shutil,urllib3,zipfile,mimetypes,cfnresponse\nfrom collections import defaultdict\nfrom botocore.exceptions import ClientError as boto3_client_error\nhttp=urllib3.PoolManager()\ntry:from urllib2 import HTTPError,build_opener,HTTPHandler,Request\nexcept ImportError:from urllib.error import HTTPError;from urllib.request import build_opener,HTTPHandler,Request\n'\\n    - CodeBucketName | str\\n    - CodeDownloadUrl | str\\n    - DemoAppApiKeyId | str\\n'\ndef handler(event,context):\n\tW='VersionId';V='Key';U='RequestType';N='CodeBucketName';M=True;C=context;A=event;print(json.dumps(A));E=A['ResourceProperties']['Properties'];G=boto3.client('s3');D={}\n\tif A[U]in['Create','Update']:\n\t\tH='/tmp/demo_ui_code.zip';O=H.replace('.zip','');'\\n            Download the codebase\\n        ';X=urllib3.PoolManager();I=X.request('GET',E['CodeDownloadUrl'],preload_content=False,headers={'Cookie':'_gh_sess={}; user_session={}'.format(os.environ['GITHUB_GH_SESSION_COOKIE'],os.environ['GITHUB_USER_SESSION_COOKIE'])})\n\t\tif I.status!=200:print('Failed to Download Demo UI Code: HTTP Code '+str(I.status));return cfnresponse.send(A,C,cfnresponse.FAILED,D)\n\t\twith I as Y,open(H,'wb')as Z:shutil.copyfileobj(Y,Z)\n\t\t'\\n            Unzip the downloaded code\\n        '\n\t\twith zipfile.ZipFile(H,'r')as a:a.extractall(O)\n\t\tP='/demo/dashboard-ui/'\n\t\ttry:b=boto3.client('apigateway').get_api_key(apiKey=E['DemoAppApiKeyId'],includeValue=M);c=b['value']\n\t\texcept boto3_client_error as F:print('Failed to Retrieve API Key: '+str(F));return cfnresponse.send(A,C,cfnresponse.FAILED,D)\n\t\t'\\n            For each file in the local code directory\\n        '\n\t\tfor B in glob.iglob(O+'**/**',recursive=M):\n\t\t\t\"\\n                If it's one of the dashboard files and it's a file, not a directory, we'll upload it to S3\\n            \"\n\t\t\tif P in B and os.path.isfile(B):\n\t\t\t\t\"\\n                    If it's the index file, we need to add the API key to authenticate Demo API requests.\\n                \"\n\t\t\t\tif B[-10:]=='index.html':\n\t\t\t\t\twith open(B,'r')as J:K=J.read()\n\t\t\t\t\tK=K.replace('{{DEMO-API-KEY}}',c)\n\t\t\t\t\twith open(B,'w')as J:J.write(K)\n\t\t\t\t\tprint('Added API Key to Demo UI Index File: '+B)\n\t\t\t\ttry:d=B.split(P)[1];G.upload_file(B,E[N],d,ExtraArgs={'ContentType':mimetypes.guess_type(B)[0]})\n\t\t\t\texcept boto3_client_error as F:print('Failed to Upload Dashboard File: '+str(F));return cfnresponse.send(A,C,cfnresponse.FAILED,D)\n\telif A[U]in['Delete']:\n\t\treturn cfnresponse.send(A,C,cfnresponse.SUCCESS,D);\"\\n            Here, we'll delete all objects, versions, and delete markers from the bucket.\\n        \";e=G.get_paginator('list_object_versions');L=[]\n\t\tfor Q in e.paginate(Bucket=E[N]):\n\t\t\tfor R in['Versions','DeleteMarkers']:\n\t\t\t\tif R in Q:\n\t\t\t\t\tfor S in Q[R]:L.append({V:S[V],W:S[W]})\n\t\tfor T in range(0,len(L),1000):\n\t\t\ttry:f=G.delete_objects(Bucket=E[N],Delete={'Objects':L[T:T+1000],'Quiet':M})\n\t\t\texcept boto3_client_error as F:print('Failed to Delete S3 Objects: '+str(F));return cfnresponse.send(A,C,cfnresponse.FAILED,D)\n\treturn cfnresponse.send(A,C,cfnresponse.SUCCESS,D)"
     },
     "Description": "Downloads dashboard code from a remote repo and deploys it to Amazon S3",
     "Environment": {
@@ -239,7 +239,19 @@
      "CodeDownloadUrl": {
       "Ref": "CodeDownloadUrl"
      },
-     "Version": "1.10"
+     "DemoAppApiKeyId": {
+      "Fn::Join": [
+       "",
+       [
+        "{{resolve:ssm:/",
+        {
+         "Ref": "MainStackName"
+        },
+        "/DemoAppApiKeyId}}"
+       ]
+      ]
+     },
+     "Version": "1.13"
     },
     "ServiceToken": {
      "Fn::GetAtt": [
@@ -320,6 +332,39 @@
           }
          ],
          "Sid": "PutS3Objects"
+        },
+        {
+         "Action": [
+          "apigateway:GET"
+         ],
+         "Effect": "Allow",
+         "Resource": [
+          {
+           "Fn::Join": [
+            "",
+            [
+             "arn:aws:apigateway:",
+             {
+              "Ref": "AWS::Region"
+             },
+             "::/apikeys/",
+             {
+              "Fn::Join": [
+               "",
+               [
+                "{{resolve:ssm:/",
+                {
+                 "Ref": "MainStackName"
+                },
+                "/DemoAppApiKeyId}}"
+               ]
+              ]
+             }
+            ]
+           ]
+          }
+         ],
+         "Sid": "GetApiKey"
         }
        ]
       },

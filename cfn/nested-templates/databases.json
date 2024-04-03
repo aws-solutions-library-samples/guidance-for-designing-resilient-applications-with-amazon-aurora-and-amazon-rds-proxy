@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template deploys the app and demo databases (if applicable)",
-  "LastUpdated": "November 30, 2023",
-  "Version": "v1.6"
+  "LastUpdated": "April 03, 2024",
+  "Version": "v1.7"
  },
  "Outputs": {
   "AppDbAdminSecretArn": {

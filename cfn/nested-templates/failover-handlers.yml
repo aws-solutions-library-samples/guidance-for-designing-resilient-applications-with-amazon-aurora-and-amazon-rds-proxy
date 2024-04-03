@@ -5,8 +5,8 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This template deploys the handles that facilitate the demo failover tracking.
-  LastUpdated: November 30, 2023
-  Version: v1.6
+  LastUpdated: April 03, 2024
+  Version: v1.7
 Parameters:
   CodeDownloadUrl:
     Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip

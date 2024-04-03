@@ -5,8 +5,8 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This template provisions the demo API methods and handlers
-  LastUpdated: November 30, 2023
-  Version: v1.6
+  LastUpdated: April 03, 2024
+  Version: v1.7
 Parameters:
   CodeDownloadUrl:
     Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -148,7 +148,7 @@ Resources:
           - id: W59
             reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
     Properties:
-      ApiKeyRequired: false
+      ApiKeyRequired: true
       AuthorizationType: NONE
       HttpMethod: GET
       Integration:
@@ -233,7 +233,7 @@ Resources:
       Integration:
         IntegrationResponses:
           - ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'''
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,x-api-key'''
               method.response.header.Access-Control-Allow-Methods: '''GET,OPTIONS'''
               method.response.header.Access-Control-Allow-Origin: '''*'''
             ResponseTemplates:
@@ -390,7 +390,7 @@ Resources:
           - id: W59
             reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
     Properties:
-      ApiKeyRequired: false
+      ApiKeyRequired: true
       AuthorizationType: NONE
       HttpMethod: GET
       Integration:
@@ -475,7 +475,7 @@ Resources:
       Integration:
         IntegrationResponses:
           - ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'''
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,x-api-key'''
               method.response.header.Access-Control-Allow-Methods: '''GET,OPTIONS'''
               method.response.header.Access-Control-Allow-Origin: '''*'''
             ResponseTemplates:
@@ -629,7 +629,7 @@ Resources:
           - id: W59
             reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
     Properties:
-      ApiKeyRequired: false
+      ApiKeyRequired: true
       AuthorizationType: NONE
       HttpMethod: GET
       Integration:
@@ -714,7 +714,7 @@ Resources:
       Integration:
         IntegrationResponses:
           - ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'''
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,x-api-key'''
               method.response.header.Access-Control-Allow-Methods: '''GET,OPTIONS'''
               method.response.header.Access-Control-Allow-Origin: '''*'''
             ResponseTemplates:
@@ -874,7 +874,7 @@ Resources:
           - id: W59
             reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
     Properties:
-      ApiKeyRequired: false
+      ApiKeyRequired: true
       AuthorizationType: NONE
       HttpMethod: GET
       Integration:
@@ -959,7 +959,7 @@ Resources:
       Integration:
         IntegrationResponses:
           - ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'''
+              method.response.header.Access-Control-Allow-Headers: '''Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,x-api-key'''
               method.response.header.Access-Control-Allow-Methods: '''GET,OPTIONS'''
               method.response.header.Access-Control-Allow-Origin: '''*'''
             ResponseTemplates:

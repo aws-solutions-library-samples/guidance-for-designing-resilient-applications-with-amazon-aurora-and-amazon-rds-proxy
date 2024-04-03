@@ -5,8 +5,8 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This template provisions the demo API Gateway
-  LastUpdated: November 30, 2023
-  Version: v1.6
+  LastUpdated: April 03, 2024
+  Version: v1.7
 Outputs:
   ApiRootResourceId:
     Condition: ''
@@ -14,6 +14,9 @@ Outputs:
   DemoAppApiId:
     Condition: ''
     Value: !Ref 'Api'
+  DemoAppApiKeyId:
+    Condition: ''
+    Value: !Ref 'ApiKey'
 Parameters:
   CodeDownloadUrl:
     Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -82,6 +85,11 @@ Resources:
         - - !Ref 'MainStackName'
           - ' - Demo Application'
     Type: AWS::ApiGateway::RestApi
+  ApiKey:
+    Properties:
+      Description: !Ref 'AWS::StackName'
+      Enabled: true
+    Type: AWS::ApiGateway::ApiKey
   ApiRootResourceIdParam:
     Condition: ''
     Properties:
@@ -131,4 +139,22 @@ Resources:
       Tier: Standard
       Type: String
       Value: !Ref 'Api'
+    Type: AWS::SSM::Parameter
+  DemoAppApiKeyIdParam:
+    Condition: ''
+    Properties:
+      Description: !Join
+        - ''
+        - - 'API Key ID for '
+          - !Ref 'AWS::StackName'
+          - ' stack'
+      Name: !Join
+        - ''
+        - - /
+          - !Ref 'MainStackName'
+          - /
+          - DemoAppApiKeyId
+      Tier: Standard
+      Type: String
+      Value: !Ref 'ApiKey'
     Type: AWS::SSM::Parameter

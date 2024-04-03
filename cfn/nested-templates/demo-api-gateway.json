@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template provisions the demo API Gateway",
-  "LastUpdated": "November 30, 2023",
-  "Version": "v1.6"
+  "LastUpdated": "April 03, 2024",
+  "Version": "v1.7"
  },
  "Outputs": {
   "ApiRootResourceId": {
@@ -24,6 +24,12 @@
    "Condition": "",
    "Value": {
     "Ref": "Api"
+   }
+  },
+  "DemoAppApiKeyId": {
+   "Condition": "",
+   "Value": {
+    "Ref": "ApiKey"
    }
   }
  },
@@ -121,6 +127,15 @@
    },
    "Type": "AWS::ApiGateway::RestApi"
   },
+  "ApiKey": {
+   "Properties": {
+    "Description": {
+     "Ref": "AWS::StackName"
+    },
+    "Enabled": true
+   },
+   "Type": "AWS::ApiGateway::ApiKey"
+  },
   "ApiRootResourceIdParam": {
    "Condition": "",
    "Properties": {
@@ -216,6 +231,42 @@
     "Type": "String",
     "Value": {
      "Ref": "Api"
+    }
+   },
+   "Type": "AWS::SSM::Parameter"
+  },
+  "DemoAppApiKeyIdParam": {
+   "Condition": "",
+   "Properties": {
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "API Key ID for ",
+       {
+        "Ref": "AWS::StackName"
+       },
+       " stack"
+      ]
+     ]
+    },
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       "/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/",
+       "DemoAppApiKeyId"
+      ]
+     ]
+    },
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": {
+     "Ref": "ApiKey"
     }
    },
    "Type": "AWS::SSM::Parameter"

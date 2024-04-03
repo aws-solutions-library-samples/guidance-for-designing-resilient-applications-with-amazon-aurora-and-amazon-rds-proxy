@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template provisions the demo API methods and handlers",
-  "LastUpdated": "November 30, 2023",
-  "Version": "v1.6"
+  "LastUpdated": "April 03, 2024",
+  "Version": "v1.7"
  },
  "Parameters": {
   "CodeDownloadUrl": {
@@ -237,7 +237,7 @@
     }
    },
    "Properties": {
-    "ApiKeyRequired": false,
+    "ApiKeyRequired": true,
     "AuthorizationType": "NONE",
     "HttpMethod": "GET",
     "Integration": {
@@ -397,7 +397,7 @@
      "IntegrationResponses": [
       {
        "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'",
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,x-api-key'",
         "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
         "method.response.header.Access-Control-Allow-Origin": "'*'"
        },
@@ -688,7 +688,7 @@
     }
    },
    "Properties": {
-    "ApiKeyRequired": false,
+    "ApiKeyRequired": true,
     "AuthorizationType": "NONE",
     "HttpMethod": "GET",
     "Integration": {
@@ -848,7 +848,7 @@
      "IntegrationResponses": [
       {
        "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'",
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,x-api-key'",
         "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
         "method.response.header.Access-Control-Allow-Origin": "'*'"
        },
@@ -1139,7 +1139,7 @@
     }
    },
    "Properties": {
-    "ApiKeyRequired": false,
+    "ApiKeyRequired": true,
     "AuthorizationType": "NONE",
     "HttpMethod": "GET",
     "Integration": {
@@ -1299,7 +1299,7 @@
      "IntegrationResponses": [
       {
        "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'",
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,x-api-key'",
         "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
         "method.response.header.Access-Control-Allow-Origin": "'*'"
        },
@@ -1602,7 +1602,7 @@
     }
    },
    "Properties": {
-    "ApiKeyRequired": false,
+    "ApiKeyRequired": true,
     "AuthorizationType": "NONE",
     "HttpMethod": "GET",
     "Integration": {
@@ -1762,7 +1762,7 @@
      "IntegrationResponses": [
       {
        "ResponseParameters": {
-        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token'",
+        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Amz-Security-Token,x-api-key'",
         "method.response.header.Access-Control-Allow-Methods": "'GET,OPTIONS'",
         "method.response.header.Access-Control-Allow-Origin": "'*'"
        },

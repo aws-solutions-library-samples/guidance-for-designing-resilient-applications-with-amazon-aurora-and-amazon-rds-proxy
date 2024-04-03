@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template deploys the demo API Gateway API",
-  "LastUpdated": "November 30, 2023",
-  "Version": "v1.6"
+  "LastUpdated": "April 03, 2024",
+  "Version": "v1.7"
  },
  "Outputs": {
   "ApiHostExport": {
@@ -210,6 +210,55 @@
     "StageName": "v1"
    },
    "Type": "AWS::ApiGateway::Stage"
+  },
+  "UsagePlan": {
+   "DependsOn": [
+    "DeploymentStage"
+   ],
+   "Properties": {
+    "ApiStages": [
+     {
+      "ApiId": {
+       "Fn::Join": [
+        "",
+        [
+         "{{resolve:ssm:/",
+         {
+          "Ref": "MainStackName"
+         },
+         "/DemoAppApiId}}"
+        ]
+       ]
+      },
+      "Stage": "v1"
+     }
+    ]
+   },
+   "Type": "AWS::ApiGateway::UsagePlan"
+  },
+  "UsagePlanKey": {
+   "DependsOn": [
+    "UsagePlan"
+   ],
+   "Properties": {
+    "KeyId": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:ssm:/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/DemoAppApiKeyId}}"
+      ]
+     ]
+    },
+    "KeyType": "API_KEY",
+    "UsagePlanId": {
+     "Ref": "UsagePlan"
+    }
+   },
+   "Type": "AWS::ApiGateway::UsagePlanKey"
   },
   "WafAssociation": {
    "DependsOn": [

@@ -30,6 +30,7 @@ except ImportError:
 '''
     - CodeBucketName | str
     - CodeDownloadUrl | str
+    - DemoAppApiKeyId | str
 '''
 def handler(event, context):
     
@@ -68,6 +69,19 @@ def handler(event, context):
             zip_ref.extractall(path_to_local_dir)
             
         dashboard_ui_path = '/demo/dashboard-ui/'
+        
+        try:
+            
+            demo_api_key_resp = boto3.client('apigateway').get_api_key(
+                apiKey = arguments['DemoAppApiKeyId'],
+                includeValue = True
+            )
+            
+            demo_api_key_value = demo_api_key_resp['value']
+            
+        except boto3_client_error as e:
+            print('Failed to Retrieve API Key: ' + str(e))
+            return cfnresponse.send(event, context, cfnresponse.FAILED, response_data)
             
         '''
             For each file in the local code directory
@@ -78,6 +92,21 @@ def handler(event, context):
                 If it's one of the dashboard files and it's a file, not a directory, we'll upload it to S3
             '''
             if dashboard_ui_path in file_path and os.path.isfile(file_path):
+                
+                '''
+                    If it's the index file, we need to add the API key to authenticate Demo API requests.
+                '''
+                if file_path[-10:] == 'index.html':
+
+                    with open(file_path, 'r') as file:
+                        file_contents = file.read()
+
+                    file_contents = file_contents.replace('{{DEMO-API-KEY}}', demo_api_key_value)
+
+                    with open(file_path, 'w') as file:
+                        file.write(file_contents)
+
+                    print('Added API Key to Demo UI Index File: ' + file_path)
             
                 try:
                     
@@ -93,6 +122,8 @@ def handler(event, context):
                     return cfnresponse.send(event, context, cfnresponse.FAILED, response_data)
         
     elif event['RequestType'] in ['Delete']:
+        
+        return cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
         
         '''
             Here, we'll delete all objects, versions, and delete markers from the bucket.
