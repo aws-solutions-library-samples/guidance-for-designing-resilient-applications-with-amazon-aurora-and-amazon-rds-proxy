@@ -396,35 +396,45 @@
         		return new Promise(resolve => setTimeout(resolve, ms));
         	}
         
-        	/* document.querySelector('.bypass').addEventListener('click', (e) => {
-        		let request = new Request('https://' + urlParams.get('apiHost') + '/bypass-rds-proxy');
-        		let result = fetch(request);
-        		console.log(result)	
-        		e.target.textContent = 'RDS Proxy Bypassed';
-        		e.target.className = 'btn btn-secondary disabled';
-        		$("#myCarousel").carousel(2);
-        	});*/
-        		
         	document.querySelector('.clean').addEventListener('click', (e) => {
-        		let request = new Request('https://' + urlParams.get('apiHost') + '/reset-demo-environment');
+    		    
+    		    let requestHeaders = new Headers();
+    		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+    		
+    			let request = new Request('https://' + urlParams.get('apiHost') + '/reset-demo-environment', {
+    			    headers: requestHeaders
+    			});
+        			
         		let result = fetch(request);
-        		console.log(result)	
         		e.target.textContent = 'Resetting...';
         		setTimeout(() => {  location.reload(); }, 5000);	
         	});
         
         	document.querySelector('.send_requests').addEventListener('click', (e) => {
-        		let request = new Request('https://' + urlParams.get('apiHost') + '/generate-sample-traffic');
+        		
+        		let requestHeaders = new Headers();
+    		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+    		    
+    			let request = new Request('https://' + urlParams.get('apiHost') + '/generate-sample-traffic', {
+    			    headers: requestHeaders
+    			});
+    			
         		let result = fetch(request);
-        		console.log(result)	
         		e.target.textContent = 'Sending Requests...';
         		e.target.className = 'btn btn-secondary disabled';
         	});
         		
         	document.querySelector('.initiate_failover').addEventListener('click', (e) => {	
-        		let request = new Request('https://' + urlParams.get('apiHost') + '/initiate-failover');
+        	    
+        	    let requestHeaders = new Headers();
+    		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+    		    
+    			let request = new Request('https://' + urlParams.get('apiHost') + '/initiate-failover', {
+    			    headers: requestHeaders
+    			});
+
         		let result = fetch(request);
-        		console.log(result)	
+        		
         		e.target.textContent = 'Failover Initiated...';
         		e.target.className = 'btn btn-secondary disabled';
         	});
@@ -433,9 +443,16 @@
         	{
         		async function getFailoverEventData() 
         		{
-        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-failover-events');
+        		    let requestHeaders = new Headers();
+        		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+        		    
+        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-failover-events', {
+        			    headers: requestHeaders
+        			});
+
         			let result = await fetch(request);
         			let response = await result.text();
+        			
         			failover_events = JSON.parse(response)
         			
         			for (var failover_event in failover_events) 
@@ -470,32 +487,17 @@
         	
         	getFailoverEvents()
         
-        	/*function getCalculatedRecoveryTime()
-        	{
-        		async function getCalculatedRecoveryTimeData() 
-        		{
-        			let request = new Request('https://' + urlParams.get('apiHost') + '/calculate-recovery-time');
-        			let result = await fetch(request);
-        			let response = await result.text();
-
-        			recovery_time = JSON.parse(response)
-        			
-        			for (var recovery_time_record in recovery_time) 
-        			{
-        				$("#recovery_time").text(recovery_time[recovery_time_record]['rto'])
-        			}
-        		}
-        		
-        		setInterval(getCalculatedRecoveryTimeData, 5000);
-        	}*/
-        	
-        	//getCalculatedRecoveryTime()
-        
         	function getEnvironmentData()
         	{
         		async function getEnvironmentDataRequest()
         		{
-        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-environment-data');
+        		    let requestHeaders = new Headers();
+        		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+        		    
+        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-environment-data', {
+        			    headers: requestHeaders
+        			});
+        			
         			let result = await fetch(request);
         			let response = await result.text();
         			
@@ -637,7 +639,13 @@
         	{
         		async function getPrimaryRegionData() 
         		{
-        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-client-traffic');
+        		    let requestHeaders = new Headers();
+        		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+        		    
+        			let request = new Request('https://' + urlParams.get('apiHost') + '/get-client-traffic', {
+        			    headers: requestHeaders
+        			});
+        			
         			let result = await fetch(request);
         			let response = await result.text();
         			
