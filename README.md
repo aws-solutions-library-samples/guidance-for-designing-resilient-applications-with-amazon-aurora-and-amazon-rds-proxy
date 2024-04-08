@@ -6,18 +6,17 @@ This architecture diagram helps applications achieve near-zero Recovery Point Ob
 
 
 
-1. [Overview](#overview-required)
+1. [Overview](#overview)
     - [Cost](#cost)
-2. [Prerequisites](#prerequisites-required)
-    - [Operating System](#operating-system-required)
-3. [Deployment Steps](#deployment-steps-required)
-4. [Deployment Validation](#deployment-validation-required)
-5. [Running the Guidance](#running-the-guidance-required)
-6. [Next Steps](#next-steps-required)
-7. [Cleanup](#cleanup-required)
-8. [Authors](#authors-optional)
+2. [Prerequisites](#prerequisites)
+3. [Deployment Steps](#deployment-steps)
+4. [Deployment Validation](#deployment-validation)
+5. [Running the Guidance](#running-the-guidance)
+6. [Next Steps](#next-steps)
+7. [Cleanup](#cleanup)
 
-## Overview 
+
+## Overview
 
 The guidance outlines a design pattern for applications that require a near-zero Recovery Point Objective (RPO), using Amazon Aurora and Amazon RDS Proxy. To prevent data loss during failover, data is stored in Amazon SQS.
 
