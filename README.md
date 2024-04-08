@@ -1,4 +1,4 @@
- bnh# Guidance for achieving near-zero RPO for applications using Amazon Aurora with Amazon RDS Proxy in a single region
+#  Guidance for achieving near-zero RPO for applications using Amazon Aurora with Amazon RDS Proxy in a single region
 
 
 
@@ -53,42 +53,38 @@ Replace this amount with the approximate cost for running your Guidance in the d
 * Once deployed, the primary stack you launch will contain the following outputs:
   * CloudWatchDashboardUrl - Cloudwatch Dashbaord to access application metrics
   * DemoDashboardUrl - The dashbaord to simulate user traffic and failover
-
+* An email will be sent to the email ID provided during the CloudFormation stack setup, containing a temporary password. Use this temporary password to log in to the DemoDashboard. Upon first login, the portal will prompt you to change the password.
+  
 ## Deployment Validation 
 
 The CloudFormation stack should not display any errors, and the output values should be available in the parent stack.
 
 ## Running the Guidance 
 
-<Provide instructions to run the Guidance with the sample data or input provided, and interpret the output received.> 
+* Find the URL of demo dashboard: Go to CloudFormation -> Stacks -> The stack you just created -> Outputs “DemoDashboardUrl”
+* Use the control panel in the top-left corner to run the test:
+* Start with Step 1 : Generate Client Traffic. This step will generate simuated user  traffic
 
-This section should include:
+   ![Control Panel](/assets/Images/ControlPanel.png)
+  
+* Once the traffic is being generated , click Step 2 : Send Failover Request. This will initiate the database failover. Refer the sections on right side of the page 
+  * Event Timeline : Status of failover request
+  * Database roles : Roles of database before/after failover. The roles will swap  after failover.  
+  * Queued records : Records persisted in queue and waiting to be commited to database 
+  * Database Records Counts : Total records commited to database in each avaiability zone. Ideally, the count should remain the same after failover in both the instance of database
+     
+   ![Status](/assets/Images/Status.png)
 
-* Guidance inputs
-* Commands to run
-* Expected output (provide screenshot if possible)
-* Output description
+## Next Steps
 
-
-
-## Next Steps (required)
-
-Provide suggestions and recommendations about how customers can modify the parameters and the components of the Guidance to further enhance it according to their requirements.
+The maxReceiveCount on the SQS’s redrive policy is set to 25. If the message in SQS is not processed after 25 attempts, it is sent to the Dead Letter Queue. The re-processing of the Dead Letter Queue is not included in this solution. However, the solution can be enhanced by implementing Dead Letter Queue processing.
 
 
 ## Cleanup (required)
 
-- Include detailed instructions, commands, and console actions to delete the deployed Guidance.
-- If the Guidance requires manual deletion of resources, such as the content of an S3 bucket, please specify.
+* To clean up / undeploy this solution, simply delete the primary CloudFormation Stack you initially launched. The cleanup will take roughly 30 minutes
+* If you see a delete failure, retry it, without skipping any failed deletions
 
 
-Provide a link to the *GitHub issues page* for users to provide feedback.
+For any feedback, questions, or suggestions, please use the issues tab under this repo.
 
-
-**Example:** *“For any feedback, questions, or suggestions, please use the issues tab under this repo.”*
-
-
-
-## Authors (optional)
-
-Name of code contributors
