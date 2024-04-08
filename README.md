@@ -51,8 +51,8 @@ Replace this amount with the approximate cost for running your Guidance in the d
 * This solution can be deployed using a single main CloudFormation template located [here](/cfn). Both main.yml and main.json are functionally identical. This template takes roughly 30 minutes to deploy.
 * During deployment, this template will launch several additional CloudFormation StackSets to fully deploy the required resources. While you don't need to launch or modify these StackSets directly, the underlying templates have been included in this repo for your reference
 * Once deployed, the primary stack you launch will contain the following outputs:
-  * CloudWatchDashboardUrl - Cloudwatch Dashbaord to access application metrics
-  * DemoDashboardUrl - The dashbaord to simulate user traffic and failover
+  * CloudWatchDashboardUrl - CloudWwatch dashboard to access application metrics
+  * DemoDashboardUrl - The dashboard to simulate user traffic and failover
 * An email will be sent to the email ID provided during the CloudFormation stack setup, containing a temporary password. Use this temporary password to log in to the DemoDashboard. Upon first login, the portal will prompt you to change the password.
   
 ## Deployment Validation 
@@ -75,12 +75,14 @@ The CloudFormation stack should not display any errors, and the output values sh
      
    ![Status](/assets/Images/Status.png)
 
+* The application cloudwatch metrics can be accessed from the dashboard created by the stack deployment. Refer the output section of the parent stack for the URL. 
+
 ## Next Steps
 
 The maxReceiveCount on the SQS’s redrive policy is set to 25. If the message in SQS is not processed after 25 attempts, it is sent to the Dead Letter Queue. The re-processing of the Dead Letter Queue is not included in this solution. However, the solution can be enhanced by implementing Dead Letter Queue processing.
 
 
-## Cleanup (required)
+## Cleanup 
 
 * To clean up / undeploy this solution, simply delete the primary CloudFormation Stack you initially launched. The cleanup will take roughly 30 minutes
 * If you see a delete failure, retry it, without skipping any failed deletions
