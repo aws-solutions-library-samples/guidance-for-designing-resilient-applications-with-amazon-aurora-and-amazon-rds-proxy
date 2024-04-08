@@ -1,4 +1,4 @@
-# Guidance for achieving near-zero RPO for applications using Amazon Aurora with Amazon RDS Proxy in a single region
+ bnh# Guidance for achieving near-zero RPO for applications using Amazon Aurora with Amazon RDS Proxy in a single region
 
 
 
@@ -25,7 +25,8 @@ Data loss, particularly during database failures, is a significant challenge for
 
 ![Architecture](/assets/Images/architecture.jpeg)
 
-The solution is structured around two key applications: the ‘Demo App’ and the ‘Core App’. The ‘Demo App’ is a comprehensive suite of user interface pages, fortified by cloud services for enhanced security. The ‘Core App’ is designed to temporarily store requests in Amazon SQS and consistently commit data to an Aurora instance, ensuring data availability before, during, and after any failover events. 
+The solution is structured around two key applications: the ‘Demo App’ and the ‘Core App’. The ‘Demo App’  consists of user interface page to produce load for the application and log successful calls and errors in a simple UI. The ‘Core App’ is designed to temporarily store requests in Amazon SQS and consistently commit data to an Aurora instance, ensuring data availability before, during, and after any failover events. 
+
 
 ### Cost
 
@@ -40,46 +41,24 @@ Replace this amount with the approximate cost for running your Guidance in the d
 
 ## Prerequisites 
 
-### Operating System 
+* Pick a unique-looking stack name (suggest all-caps with whole words describing what the stack does). These will become the prefix for all the resources the stack creates
+* Pick a database username and password you'd like the demo to use for the Aurora databases it creates. Please be aware that the password must be longer than 8 characters and no special characters
+* Provide a valid email ID to receive temporary password for the Demo app 
 
+## Deployment Steps
 
+* See pre-requisites section above, as you will be prompted for these by the next step
+* This solution can be deployed using a single main CloudFormation template located [here](/cfn). Both main.yml and main.json are functionally identical. This template takes roughly 30 minutes to deploy.
+* During deployment, this template will launch several additional CloudFormation StackSets to fully deploy the required resources. While you don't need to launch or modify these StackSets directly, the underlying templates have been included in this repo for your reference
+* Once deployed, the primary stack you launch will contain the following outputs:
+  * CloudWatchDashboardUrl - Cloudwatch Dashbaord to access application metrics
+  * DemoDashboardUrl - The dashbaord to simulate user traffic and failover
 
-## Deployment Steps (required)
+## Deployment Validation 
 
-Deployment steps must be numbered, comprehensive, and usable to customers at any level of AWS expertise. The steps must include the precise commands to run, and describe the action it performs.
+The CloudFormation stack should not display any errors, and the output values should be available in the parent stack.
 
-* All steps must be numbered.
-* If the step requires manual actions from the AWS console, include a screenshot if possible.
-* The steps must start with the following command to clone the repo. ```git clone xxxxxxx```
-* If applicable, provide instructions to create the Python virtual environment, and installing the packages using ```requirement.txt```.
-* If applicable, provide instructions to capture the deployed resource ARN or ID using the CLI command (recommended), or console action.
-
- 
-**Example:**
-
-1. Clone the repo using command ```git clone xxxxxxxxxx```
-2. cd to the repo folder ```cd <repo-name>```
-3. Install packages in requirements using command ```pip install requirement.txt```
-4. Edit content of **file-name** and replace **s3-bucket** with the bucket name in your account.
-5. Run this command to deploy the stack ```cdk deploy``` 
-6. Capture the domain name created by running this CLI command ```aws apigateway ............```
-
-
-
-## Deployment Validation  (required)
-
-<Provide steps to validate a successful deployment, such as terminal output, verifying that the resource is created, status of the CloudFormation template, etc.>
-
-
-**Examples:**
-
-* Open CloudFormation console and verify the status of the template with the name starting with xxxxxx.
-* If deployment is successful, you should see an active database instance with the name starting with <xxxxx> in        the RDS console.
-*  Run the following CLI command to validate the deployment: ```aws cloudformation describe xxxxxxxxxxxxx```
-
-
-
-## Running the Guidance (required)
+## Running the Guidance 
 
 <Provide instructions to run the Guidance with the sample data or input provided, and interpret the output received.> 
 
@@ -101,26 +80,6 @@ Provide suggestions and recommendations about how customers can modify the param
 
 - Include detailed instructions, commands, and console actions to delete the deployed Guidance.
 - If the Guidance requires manual deletion of resources, such as the content of an S3 bucket, please specify.
-
-
-
-## FAQ, known issues, additional considerations, and limitations (optional)
-
-
-**Known issues (optional)**
-
-<If there are common known issues, or errors that can occur during the Guidance deployment, describe the issue and resolution steps here>
-
-
-**Additional considerations (if applicable)**
-
-<Include considerations the customer must know while using the Guidance, such as anti-patterns, or billing considerations.>
-
-**Examples:**
-
-- “This Guidance creates a public AWS bucket required for the use-case.”
-- “This Guidance created an Amazon SageMaker notebook that is billed per hour irrespective of usage.”
-- “This Guidance creates unauthenticated public API endpoints.”
 
 
 Provide a link to the *GitHub issues page* for users to provide feedback.
