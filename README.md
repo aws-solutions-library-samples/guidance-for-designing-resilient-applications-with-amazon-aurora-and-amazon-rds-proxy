@@ -42,7 +42,7 @@ Replace this amount with the approximate cost for running your Guidance in the d
 ## Prerequisites 
 
 * Pick a unique-looking stack name (suggest all-caps with whole words describing what the stack does). These will become the prefix for all the resources the stack creates
-* Pick a database username and password you'd like the demo to use for the Aurora databases it creates. Please be aware that the password must be longer than 8 characters and no special characters
+* Pick a database username and password you'd like the demo to use for the Aurora databases it creates. Please be aware that the password must be longer than 8 characters and no special characters. The username can't be a Postgres keyword (like "admin")
 * Provide a valid email ID to receive temporary password for the Demo app 
 
 ## Deployment Steps
