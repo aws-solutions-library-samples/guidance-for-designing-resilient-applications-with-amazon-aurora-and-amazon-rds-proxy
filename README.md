@@ -84,9 +84,12 @@ The maxReceiveCount on the SQS’s redrive policy is set to 25. If the message i
 ## Cleanup 
 
 * To clean up / undeploy this solution, simply delete the primary CloudFormation Stack you initially launched. The cleanup will take roughly 30 minutes
-* During deletion of stack you may encounter an error in one of stack set with error “Lambda was unable to delete because of a replica function.” and stack deletion may fail.  The error happens due to the time it takes to delete replica functions. In such case retry deleting the stack after 15 min. 
+* When deleting the stack , some of the Lambda@Edge functions may end up in DELETE_FAILED state, with an error similar to below one:
+    An error occurred (InvalidParameterValueException) when calling the DeleteFunction operation: Lambda was unable to delete arn:aws:lambda:us-east-1:12345:function:LambdaFunctionName:1 because it is a replicated function. 
 
-  [refer to link for details on deleting replica function](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-delete-replicas.html)
+   [refer to link for deleting Lambda@Edge Functions and Replicas.](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-delete-replicas.html)
+
+* In case you get the above error,  wait a few hours and try the delete of the nested stack again. It will work.
 
 For any feedback, questions, or suggestions, please use the issues tab under this repo.
 
