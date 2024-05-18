@@ -1,4 +1,4 @@
-# Guidance for achieving near-zero RPO for applications using Amazon Aurora with Amazon RDS Proxy in a single region
+#  Guidance for achieving near-zero RPO for applications using Amazon Aurora with Amazon RDS Proxy in a single region
 
 
 
@@ -6,18 +6,17 @@ This architecture diagram helps applications achieve near-zero Recovery Point Ob
 
 
 
-1. [Overview](#overview-required)
+1. [Overview](#overview)
     - [Cost](#cost)
-2. [Prerequisites](#prerequisites-required)
-    - [Operating System](#operating-system-required)
-3. [Deployment Steps](#deployment-steps-required)
-4. [Deployment Validation](#deployment-validation-required)
-5. [Running the Guidance](#running-the-guidance-required)
-6. [Next Steps](#next-steps-required)
-7. [Cleanup](#cleanup-required)
-8. [Authors](#authors-optional)
+2. [Prerequisites](#prerequisites)
+3. [Deployment Steps](#deployment-steps)
+4. [Deployment Validation](#deployment-validation)
+5. [Running the Guidance](#running-the-guidance)
+6. [Next Steps](#next-steps)
+7. [Cleanup](#cleanup)
 
-## Overview 
+
+## Overview
 
 The guidance outlines a design pattern for applications that require a near-zero Recovery Point Objective (RPO), using Amazon Aurora and Amazon RDS Proxy. To prevent data loss during failover, data is stored in Amazon SQS.
 
@@ -25,7 +24,8 @@ Data loss, particularly during database failures, is a significant challenge for
 
 ![Architecture](/assets/Images/architecture.jpeg)
 
-The solution is structured around two key applications: the ‘Demo App’ and the ‘Core App’. The ‘Demo App’ is a comprehensive suite of user interface pages, fortified by cloud services for enhanced security. The ‘Core App’ is designed to temporarily store requests in Amazon SQS and consistently commit data to an Aurora instance, ensuring data availability before, during, and after any failover events. 
+The solution is structured around two key applications: the ‘Demo App’ and the ‘Core App’. The ‘Demo App’  consists of user interface page to produce load for the application and log successful calls and errors in a simple UI. The ‘Core App’ is designed to temporarily store requests in Amazon SQS and consistently commit data to an Aurora instance, ensuring data availability before, during, and after any failover events. 
+
 
 ### Cost
 
@@ -40,96 +40,56 @@ Replace this amount with the approximate cost for running your Guidance in the d
 
 ## Prerequisites 
 
-### Operating System 
+* Pick a unique-looking stack name (suggest all-caps with whole words describing what the stack does). These will become the prefix for all the resources the stack creates
+* Pick a database username and password you'd like the demo to use for the Aurora databases it creates. Please be aware that the password must be longer than 8 characters and no special characters. The username can't be a Postgres keyword (like "admin")
+* Provide a valid email ID to receive temporary password for the Demo app 
+
+## Deployment Steps
+
+* See pre-requisites section above, as you will be prompted for these by the next step
+* This solution can be deployed using a single main CloudFormation template located [here](/cfn). Both main.yml and main.json are functionally identical. This template takes roughly 30 minutes to deploy.
+* During deployment, this template will launch several additional CloudFormation StackSets to fully deploy the required resources. While you don't need to launch or modify these StackSets directly, the underlying templates have been included in this repo for your reference
+* Once deployed, the primary stack you launch will contain the following outputs:
+  * CloudWatchDashboardUrl - CloudWwatch dashboard to access application metrics
+  * DemoDashboardUrl - The dashboard to simulate user traffic and failover
+* An email will be sent to the email ID provided during the CloudFormation stack setup, containing a temporary password. Use this temporary password to log in to the DemoDashboard. Upon first login, the portal will prompt you to change the password.
+  
+## Deployment Validation 
+
+The CloudFormation stack should not display any errors, and the output values should be available in the parent stack.
+
+## Running the Guidance 
+
+* Find the URL of demo dashboard: Go to CloudFormation -> Stacks -> The stack you just created -> Outputs “DemoDashboardUrl”
+* Use the control panel in the top-left corner to run the test:
+* Start with Step 1 : Generate Client Traffic. This step will generate simuated user  traffic
+
+   ![Control Panel](/assets/Images/ControlPanel.png)
+  
+* Once the traffic is being generated , click Step 2 : Send Failover Request. This will initiate the database failover. Refer the sections on right side of the page 
+  * Event Timeline : Status of failover request
+  * Database roles : Roles of database before/after failover. The roles will swap  after failover.  
+  * Queued records : Records persisted in queue and waiting to be commited to database 
+  * Database Records Counts : Total records commited to database in each avaiability zone. Ideally, the count should remain the same after failover in both the instance of database
+     
+   ![Status](/assets/Images/Status.png)
+
+* The application cloudwatch metrics can be accessed from the dashboard created by the stack deployment. Refer the output section of the parent stack for the URL. 
+
+## Next Steps
+
+The maxReceiveCount on the SQS’s redrive policy is set to 25. If the message in SQS is not processed after 25 attempts, it is sent to the Dead Letter Queue. The re-processing of the Dead Letter Queue is not included in this solution. However, the solution can be enhanced by implementing Dead Letter Queue processing.
 
 
+## Cleanup 
 
-## Deployment Steps (required)
+* To clean up / undeploy this solution, simply delete the primary CloudFormation Stack you initially launched. The cleanup will take roughly 30 minutes
+* When deleting the stack , some of the Lambda@Edge functions may end up in DELETE_FAILED state, with an error similar to below one:
+    An error occurred (InvalidParameterValueException) when calling the DeleteFunction operation: Lambda was unable to delete arn:aws:lambda:us-east-1:12345:function:LambdaFunctionName:1 because it is a replicated function. 
 
-Deployment steps must be numbered, comprehensive, and usable to customers at any level of AWS expertise. The steps must include the precise commands to run, and describe the action it performs.
+   [refer to link for deleting Lambda@Edge Functions and Replicas.](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/lambda-edge-delete-replicas.html)
 
-* All steps must be numbered.
-* If the step requires manual actions from the AWS console, include a screenshot if possible.
-* The steps must start with the following command to clone the repo. ```git clone xxxxxxx```
-* If applicable, provide instructions to create the Python virtual environment, and installing the packages using ```requirement.txt```.
-* If applicable, provide instructions to capture the deployed resource ARN or ID using the CLI command (recommended), or console action.
+* In case you get the above error,  wait a few hours and try the delete of the nested stack again. It will work.
 
- 
-**Example:**
+For any feedback, questions, or suggestions, please use the issues tab under this repo.
 
-1. Clone the repo using command ```git clone xxxxxxxxxx```
-2. cd to the repo folder ```cd <repo-name>```
-3. Install packages in requirements using command ```pip install requirement.txt```
-4. Edit content of **file-name** and replace **s3-bucket** with the bucket name in your account.
-5. Run this command to deploy the stack ```cdk deploy``` 
-6. Capture the domain name created by running this CLI command ```aws apigateway ............```
-
-
-
-## Deployment Validation  (required)
-
-<Provide steps to validate a successful deployment, such as terminal output, verifying that the resource is created, status of the CloudFormation template, etc.>
-
-
-**Examples:**
-
-* Open CloudFormation console and verify the status of the template with the name starting with xxxxxx.
-* If deployment is successful, you should see an active database instance with the name starting with <xxxxx> in        the RDS console.
-*  Run the following CLI command to validate the deployment: ```aws cloudformation describe xxxxxxxxxxxxx```
-
-
-
-## Running the Guidance (required)
-
-<Provide instructions to run the Guidance with the sample data or input provided, and interpret the output received.> 
-
-This section should include:
-
-* Guidance inputs
-* Commands to run
-* Expected output (provide screenshot if possible)
-* Output description
-
-
-
-## Next Steps (required)
-
-Provide suggestions and recommendations about how customers can modify the parameters and the components of the Guidance to further enhance it according to their requirements.
-
-
-## Cleanup (required)
-
-- Include detailed instructions, commands, and console actions to delete the deployed Guidance.
-- If the Guidance requires manual deletion of resources, such as the content of an S3 bucket, please specify.
-
-
-
-## FAQ, known issues, additional considerations, and limitations (optional)
-
-
-**Known issues (optional)**
-
-<If there are common known issues, or errors that can occur during the Guidance deployment, describe the issue and resolution steps here>
-
-
-**Additional considerations (if applicable)**
-
-<Include considerations the customer must know while using the Guidance, such as anti-patterns, or billing considerations.>
-
-**Examples:**
-
-- “This Guidance creates a public AWS bucket required for the use-case.”
-- “This Guidance created an Amazon SageMaker notebook that is billed per hour irrespective of usage.”
-- “This Guidance creates unauthenticated public API endpoints.”
-
-
-Provide a link to the *GitHub issues page* for users to provide feedback.
-
-
-**Example:** *“For any feedback, questions, or suggestions, please use the issues tab under this repo.”*
-
-
-
-## Authors (optional)
-
-Name of code contributors
