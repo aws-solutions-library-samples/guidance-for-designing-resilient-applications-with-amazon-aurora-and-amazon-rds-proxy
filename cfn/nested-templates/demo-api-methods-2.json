@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template provisions the demo API methods and handlers",
-  "LastUpdated": "April 03, 2024",
-  "Version": "v1.7"
+  "LastUpdated": "May 18, 2024",
+  "Version": "v1.9"
  },
  "Parameters": {
   "CodeDownloadUrl": {
@@ -483,8 +483,20 @@
     }
    },
    "Properties": {
-    "ApiKeyRequired": true,
-    "AuthorizationType": "NONE",
+    "ApiKeyRequired": false,
+    "AuthorizationType": "COGNITO_USER_POOLS",
+    "AuthorizerId": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:ssm:/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/CognitoAuthorizerId}}"
+      ]
+     ]
+    },
     "HttpMethod": "GET",
     "Integration": {
      "IntegrationHttpMethod": "POST",
@@ -927,8 +939,20 @@
     }
    },
    "Properties": {
-    "ApiKeyRequired": true,
-    "AuthorizationType": "NONE",
+    "ApiKeyRequired": false,
+    "AuthorizationType": "COGNITO_USER_POOLS",
+    "AuthorizerId": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:ssm:/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/CognitoAuthorizerId}}"
+      ]
+     ]
+    },
     "HttpMethod": "GET",
     "Integration": {
      "IntegrationHttpMethod": "POST",
@@ -1564,8 +1588,20 @@
     }
    },
    "Properties": {
-    "ApiKeyRequired": true,
-    "AuthorizationType": "NONE",
+    "ApiKeyRequired": false,
+    "AuthorizationType": "COGNITO_USER_POOLS",
+    "AuthorizerId": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:ssm:/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/CognitoAuthorizerId}}"
+      ]
+     ]
+    },
     "HttpMethod": "GET",
     "Integration": {
      "IntegrationHttpMethod": "POST",

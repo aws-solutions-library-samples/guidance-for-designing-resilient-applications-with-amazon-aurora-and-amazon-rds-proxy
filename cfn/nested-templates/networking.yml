@@ -5,8 +5,8 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This template deploys the VPC and other networking resources required to host the application
-  LastUpdated: April 03, 2024
-  Version: v1.7
+  LastUpdated: May 18, 2024
+  Version: v1.9
 Outputs:
   LambdaSecurityGroupId:
     Condition: ''

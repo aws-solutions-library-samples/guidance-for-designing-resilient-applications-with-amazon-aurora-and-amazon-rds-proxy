@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template deploys the handles that facilitate the demo failover tracking.",
-  "LastUpdated": "April 03, 2024",
-  "Version": "v1.7"
+  "LastUpdated": "May 18, 2024",
+  "Version": "v1.9"
  },
  "Parameters": {
   "CodeDownloadUrl": {

@@ -60,8 +60,8 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This template deploys a 0-RPO database architecture using Amazon RDS, Amazon SQS, AWS Lambda, and Amazon API Gateway.
-  LastUpdated: April 03, 2024
-  Version: v1.7
+  LastUpdated: May 18, 2024
+  Version: v1.9
 Outputs:
   CloudWatchDashboardUrl:
     Description: CloudWatch Dashboard URL
@@ -80,10 +80,14 @@ Outputs:
           - ''
           - - !Join
               - ''
-              - - ?apiHost=
-                - !GetAtt 'CfnExportRetrieverResource.DemoApiHost'
-            - '&region='
-            - !Ref 'AWS::Region'
+              - - !Join
+                  - ''
+                  - - ?apiHost=
+                    - !GetAtt 'CfnExportRetrieverResource.DemoApiHost'
+                - '&awsRegion='
+                - !Ref 'AWS::Region'
+            - '&cognitoClientId='
+            - !GetAtt 'CfnExportRetrieverResource.CognitoClientId'
 Parameters:
   CodeDownloadUrl:
     Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -196,7 +200,7 @@ Resources:
       Properties:
         ExportPrefix: !Ref 'AWS::StackName'
         Region: !Ref 'AWS::Region'
-        Version: 1.21
+        Version: 1.22
       ServiceToken: !GetAtt 'CfnExportRetriever.Arn'
       Type: Custom::GetCFNExports
       Version: '1.0'
@@ -331,8 +335,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This application deploys a Global RDS Aurora cluster.
-          LastUpdated: April 03, 2024
-          Version: v1.7
+          LastUpdated: May 18, 2024
+          Version: v1.9
         Outputs:
           CoreAppHandlerName:
             Condition: ''
@@ -991,8 +995,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the app and demo databases (if applicable)
-          LastUpdated: April 03, 2024
-          Version: v1.7
+          LastUpdated: May 18, 2024
+          Version: v1.9
         Outputs:
           AppDbAdminSecretArn:
             Condition: ''
@@ -2069,8 +2073,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the demo API Gateway API
-          LastUpdated: April 03, 2024
-          Version: v1.7
+          LastUpdated: May 18, 2024
+          Version: v1.9
         Outputs:
           ApiHostExport:
             Export:
@@ -2195,30 +2199,6 @@ Resources:
                   - /DemoAppApiId}}
               StageName: v1
             Type: AWS::ApiGateway::Stage
-          UsagePlan:
-            DependsOn:
-              - DeploymentStage
-            Properties:
-              ApiStages:
-                - ApiId: !Join
-                    - ''
-                    - - '{{resolve:ssm:/'
-                      - !Ref 'MainStackName'
-                      - /DemoAppApiId}}
-                  Stage: v1
-            Type: AWS::ApiGateway::UsagePlan
-          UsagePlanKey:
-            DependsOn:
-              - UsagePlan
-            Properties:
-              KeyId: !Join
-                - ''
-                - - '{{resolve:ssm:/'
-                  - !Ref 'MainStackName'
-                  - /DemoAppApiKeyId}}
-              KeyType: API_KEY
-              UsagePlanId: !Ref 'UsagePlan'
-            Type: AWS::ApiGateway::UsagePlanKey
           WafAssociation:
             DependsOn:
               - DeploymentStage
@@ -2246,6 +2226,7 @@ Resources:
       - StackSetExecutionRole
       - StackSetAdministrationRole
       - NetworkingStackSet
+      - DemoDashboardStackSet
     Properties:
       AdministrationRoleARN: !GetAtt 'StackSetAdministrationRole.Arn'
       CallAs: SELF
@@ -2308,18 +2289,18 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template provisions the demo API Gateway
-          LastUpdated: April 03, 2024
-          Version: v1.7
+          LastUpdated: May 18, 2024
+          Version: v1.9
         Outputs:
           ApiRootResourceId:
             Condition: ''
             Value: !GetAtt 'Api.RootResourceId'
+          CognitoAuthorizerId:
+            Condition: ''
+            Value: !GetAtt 'CognitoAuthorizer.AuthorizerId'
           DemoAppApiId:
             Condition: ''
             Value: !Ref 'Api'
-          DemoAppApiKeyId:
-            Condition: ''
-            Value: !Ref 'ApiKey'
         Parameters:
           CodeDownloadUrl:
             Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -2388,11 +2369,6 @@ Resources:
                 - - !Ref 'MainStackName'
                   - ' - Demo Application'
             Type: AWS::ApiGateway::RestApi
-          ApiKey:
-            Properties:
-              Description: !Ref 'AWS::StackName'
-              Enabled: true
-            Type: AWS::ApiGateway::ApiKey
           ApiRootResourceIdParam:
             Condition: ''
             Properties:
@@ -2410,6 +2386,50 @@ Resources:
               Tier: Standard
               Type: String
               Value: !GetAtt 'Api.RootResourceId'
+            Type: AWS::SSM::Parameter
+          CognitoAuthorizer:
+            Properties:
+              IdentitySource: method.request.header.Authorization
+              Name: Cognito-User-Pool
+              ProviderARNs:
+                - !Join
+                  - ''
+                  - - 'arn:'
+                    - !Ref 'AWS::Partition'
+                    - ':cognito-idp:'
+                    - !Ref 'AWS::Region'
+                    - ':'
+                    - !Ref 'AWS::AccountId'
+                    - :userpool/
+                    - !Join
+                      - ''
+                      - - '{{resolve:ssm:/'
+                        - !Ref 'MainStackName'
+                        - /CognitoUserPoolId}}
+              RestApiId: !Join
+                - ''
+                - - '{{resolve:ssm:/'
+                  - !Ref 'MainStackName'
+                  - /DemoAppApiId}}
+              Type: COGNITO_USER_POOLS
+            Type: AWS::ApiGateway::Authorizer
+          CognitoAuthorizerIdParam:
+            Condition: ''
+            Properties:
+              Description: !Join
+                - ''
+                - - 'Cognito API Authorizer ID for '
+                  - !Ref 'AWS::StackName'
+                  - ' stack'
+              Name: !Join
+                - ''
+                - - /
+                  - !Ref 'MainStackName'
+                  - /
+                  - CognitoAuthorizerId
+              Tier: Standard
+              Type: String
+              Value: !GetAtt 'CognitoAuthorizer.AuthorizerId'
             Type: AWS::SSM::Parameter
           DEFAULT4XXGatewayResponse:
             Properties:
@@ -2442,24 +2462,6 @@ Resources:
               Tier: Standard
               Type: String
               Value: !Ref 'Api'
-            Type: AWS::SSM::Parameter
-          DemoAppApiKeyIdParam:
-            Condition: ''
-            Properties:
-              Description: !Join
-                - ''
-                - - 'API Key ID for '
-                  - !Ref 'AWS::StackName'
-                  - ' stack'
-              Name: !Join
-                - ''
-                - - /
-                  - !Ref 'MainStackName'
-                  - /
-                  - DemoAppApiKeyId
-              Tier: Standard
-              Type: String
-              Value: !Ref 'ApiKey'
             Type: AWS::SSM::Parameter
     Type: AWS::CloudFormation::StackSet
   DemoAPIMethods1StackSet:
@@ -2534,8 +2536,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template provisions the demo API methods and handlers
-          LastUpdated: April 03, 2024
-          Version: v1.7
+          LastUpdated: May 18, 2024
+          Version: v1.9
         Parameters:
           CodeDownloadUrl:
             Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -2677,8 +2679,13 @@ Resources:
                   - id: W59
                     reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
             Properties:
-              ApiKeyRequired: true
-              AuthorizationType: NONE
+              ApiKeyRequired: false
+              AuthorizationType: COGNITO_USER_POOLS
+              AuthorizerId: !Join
+                - ''
+                - - '{{resolve:ssm:/'
+                  - !Ref 'MainStackName'
+                  - /CognitoAuthorizerId}}
               HttpMethod: GET
               Integration:
                 IntegrationHttpMethod: POST
@@ -2919,8 +2926,13 @@ Resources:
                   - id: W59
                     reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
             Properties:
-              ApiKeyRequired: true
-              AuthorizationType: NONE
+              ApiKeyRequired: false
+              AuthorizationType: COGNITO_USER_POOLS
+              AuthorizerId: !Join
+                - ''
+                - - '{{resolve:ssm:/'
+                  - !Ref 'MainStackName'
+                  - /CognitoAuthorizerId}}
               HttpMethod: GET
               Integration:
                 IntegrationHttpMethod: POST
@@ -3158,8 +3170,13 @@ Resources:
                   - id: W59
                     reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
             Properties:
-              ApiKeyRequired: true
-              AuthorizationType: NONE
+              ApiKeyRequired: false
+              AuthorizationType: COGNITO_USER_POOLS
+              AuthorizerId: !Join
+                - ''
+                - - '{{resolve:ssm:/'
+                  - !Ref 'MainStackName'
+                  - /CognitoAuthorizerId}}
               HttpMethod: GET
               Integration:
                 IntegrationHttpMethod: POST
@@ -3403,8 +3420,13 @@ Resources:
                   - id: W59
                     reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
             Properties:
-              ApiKeyRequired: true
-              AuthorizationType: NONE
+              ApiKeyRequired: false
+              AuthorizationType: COGNITO_USER_POOLS
+              AuthorizerId: !Join
+                - ''
+                - - '{{resolve:ssm:/'
+                  - !Ref 'MainStackName'
+                  - /CognitoAuthorizerId}}
               HttpMethod: GET
               Integration:
                 IntegrationHttpMethod: POST
@@ -3645,8 +3667,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template provisions the demo API methods and handlers
-          LastUpdated: April 03, 2024
-          Version: v1.7
+          LastUpdated: May 18, 2024
+          Version: v1.9
         Parameters:
           CodeDownloadUrl:
             Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -3919,8 +3941,13 @@ Resources:
                   - id: W59
                     reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
             Properties:
-              ApiKeyRequired: true
-              AuthorizationType: NONE
+              ApiKeyRequired: false
+              AuthorizationType: COGNITO_USER_POOLS
+              AuthorizerId: !Join
+                - ''
+                - - '{{resolve:ssm:/'
+                  - !Ref 'MainStackName'
+                  - /CognitoAuthorizerId}}
               HttpMethod: GET
               Integration:
                 IntegrationHttpMethod: POST
@@ -4168,8 +4195,13 @@ Resources:
                   - id: W59
                     reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
             Properties:
-              ApiKeyRequired: true
-              AuthorizationType: NONE
+              ApiKeyRequired: false
+              AuthorizationType: COGNITO_USER_POOLS
+              AuthorizerId: !Join
+                - ''
+                - - '{{resolve:ssm:/'
+                  - !Ref 'MainStackName'
+                  - /CognitoAuthorizerId}}
               HttpMethod: GET
               Integration:
                 IntegrationHttpMethod: POST
@@ -4493,8 +4525,13 @@ Resources:
                   - id: W59
                     reason: This endpoint is being used to support an ephemeral demo environment that does not contain sensitive data.
             Properties:
-              ApiKeyRequired: true
-              AuthorizationType: NONE
+              ApiKeyRequired: false
+              AuthorizationType: COGNITO_USER_POOLS
+              AuthorizerId: !Join
+                - ''
+                - - '{{resolve:ssm:/'
+                  - !Ref 'MainStackName'
+                  - /CognitoAuthorizerId}}
               HttpMethod: GET
               Integration:
                 IntegrationHttpMethod: POST
@@ -4692,7 +4729,6 @@ Resources:
       - StackSetExecutionRole
       - StackSetAdministrationRole
       - NetworkingStackSet
-      - DemoAPIGatewayStackSet
     Properties:
       AdministrationRoleARN: !GetAtt 'StackSetAdministrationRole.Arn'
       CallAs: SELF
@@ -4755,16 +4791,26 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the demo CloudFront Distrubtion and dashboard
-          LastUpdated: April 03, 2024
-          Version: v1.7
+          LastUpdated: May 18, 2024
+          Version: v1.9
         Outputs:
           CloudFrontCdnWebsiteExport:
             Export:
               Name: !Join
                 - ''
                 - - !Ref 'MainStackName'
+                  - -CognitoClientId
+            Value: !GetAtt 'Authentication.Outputs.ClientId'
+          CognitoClientIdExport:
+            Export:
+              Name: !Join
+                - ''
+                - - !Ref 'MainStackName'
                   - -DashboardWebsite
             Value: !GetAtt 'Authentication.Outputs.WebsiteUrl'
+          CognitoUserPoolId:
+            Condition: ''
+            Value: !GetAtt 'Authentication.Outputs.UserPoolId'
         Parameters:
           CodeDownloadUrl:
             Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -4836,6 +4882,24 @@ Resources:
                   {"Strict-Transport-Security": "max-age=31536000; includeSubdomains; preload", "Referrer-Policy": "same-origin", "X-XSS-Protection": "1; mode=block", "X-Frame-Options": "DENY", "X-Content-Type-Options":
                   "nosniff"}
             Type: AWS::Serverless::Application
+          CognitoUserPoolIdParam:
+            Condition: ''
+            Properties:
+              Description: !Join
+                - ''
+                - - 'Cognito User Pool ID for '
+                  - !Ref 'AWS::StackName'
+                  - ' stack'
+              Name: !Join
+                - ''
+                - - /
+                  - !Ref 'MainStackName'
+                  - /
+                  - CognitoUserPoolId
+              Tier: Standard
+              Type: String
+              Value: !GetAtt 'Authentication.Outputs.UserPoolId'
+            Type: AWS::SSM::Parameter
           DashboardCodeDeployer:
             DependsOn: []
             Metadata:
@@ -4854,19 +4918,20 @@ Resources:
                 ZipFile: "import sys,subprocess\nsubprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)\nsys.path.insert(1,'/tmp/')\n\
                   import os,json,glob,boto3,shutil,urllib3,zipfile,mimetypes,cfnresponse\nfrom collections import defaultdict\nfrom botocore.exceptions import ClientError as boto3_client_error\nhttp=urllib3.PoolManager()\n\
                   try:from urllib2 import HTTPError,build_opener,HTTPHandler,Request\nexcept ImportError:from urllib.error import HTTPError;from urllib.request import build_opener,HTTPHandler,Request\n'\\n    -\
-                  \ CodeBucketName | str\\n    - CodeDownloadUrl | str\\n    - DemoAppApiKeyId | str\\n'\ndef handler(event,context):\n\tW='VersionId';V='Key';U='RequestType';N='CodeBucketName';M=True;C=context;A=event;print(json.dumps(A));E=A['ResourceProperties']['Properties'];G=boto3.client('s3');D={}\n\
-                  \tif A[U]in['Create','Update']:\n\t\tH='/tmp/demo_ui_code.zip';O=H.replace('.zip','');'\\n            Download the codebase\\n        ';X=urllib3.PoolManager();I=X.request('GET',E['CodeDownloadUrl'],preload_content=False,headers={'Cookie':'_gh_sess={};\
-                  \ user_session={}'.format(os.environ['GITHUB_GH_SESSION_COOKIE'],os.environ['GITHUB_USER_SESSION_COOKIE'])})\n\t\tif I.status!=200:print('Failed to Download Demo UI Code: HTTP Code '+str(I.status));return\
-                  \ cfnresponse.send(A,C,cfnresponse.FAILED,D)\n\t\twith I as Y,open(H,'wb')as Z:shutil.copyfileobj(Y,Z)\n\t\t'\\n            Unzip the downloaded code\\n        '\n\t\twith zipfile.ZipFile(H,'r')as\
-                  \ a:a.extractall(O)\n\t\tP='/demo/dashboard-ui/'\n\t\ttry:b=boto3.client('apigateway').get_api_key(apiKey=E['DemoAppApiKeyId'],includeValue=M);c=b['value']\n\t\texcept boto3_client_error as F:print('Failed\
-                  \ to Retrieve API Key: '+str(F));return cfnresponse.send(A,C,cfnresponse.FAILED,D)\n\t\t'\\n            For each file in the local code directory\\n        '\n\t\tfor B in glob.iglob(O+'**/**',recursive=M):\n\
-                  \t\t\t\"\\n                If it's one of the dashboard files and it's a file, not a directory, we'll upload it to S3\\n            \"\n\t\t\tif P in B and os.path.isfile(B):\n\t\t\t\t\"\\n  \
-                  \                  If it's the index file, we need to add the API key to authenticate Demo API requests.\\n                \"\n\t\t\t\tif B[-10:]=='index.html':\n\t\t\t\t\twith open(B,'r')as J:K=J.read()\n\
-                  \t\t\t\t\tK=K.replace('{{DEMO-API-KEY}}',c)\n\t\t\t\t\twith open(B,'w')as J:J.write(K)\n\t\t\t\t\tprint('Added API Key to Demo UI Index File: '+B)\n\t\t\t\ttry:d=B.split(P)[1];G.upload_file(B,E[N],d,ExtraArgs={'ContentType':mimetypes.guess_type(B)[0]})\n\
-                  \t\t\t\texcept boto3_client_error as F:print('Failed to Upload Dashboard File: '+str(F));return cfnresponse.send(A,C,cfnresponse.FAILED,D)\n\telif A[U]in['Delete']:\n\t\treturn cfnresponse.send(A,C,cfnresponse.SUCCESS,D);\"\
-                  \\n            Here, we'll delete all objects, versions, and delete markers from the bucket.\\n        \";e=G.get_paginator('list_object_versions');L=[]\n\t\tfor Q in e.paginate(Bucket=E[N]):\n\
-                  \t\t\tfor R in['Versions','DeleteMarkers']:\n\t\t\t\tif R in Q:\n\t\t\t\t\tfor S in Q[R]:L.append({V:S[V],W:S[W]})\n\t\tfor T in range(0,len(L),1000):\n\t\t\ttry:f=G.delete_objects(Bucket=E[N],Delete={'Objects':L[T:T+1000],'Quiet':M})\n\
-                  \t\t\texcept boto3_client_error as F:print('Failed to Delete S3 Objects: '+str(F));return cfnresponse.send(A,C,cfnresponse.FAILED,D)\n\treturn cfnresponse.send(A,C,cfnresponse.SUCCESS,D)"
+                  \ CodeBucketName | str\\n    - CodeDownloadUrl | str\\n    - CognitoClientId | str\\n'\ndef handler(event,context):\n\tT='VersionId';S='Key';R='RequestType';K='CodeBucketName';B=context;A=event;print(json.dumps(A));E=A['ResourceProperties']['Properties'];F=boto3.client('s3');C={}\n\
+                  \tif A[R]in['Create','Update']:\n\t\tG='/tmp/demo_ui_code.zip';L=G.replace('.zip','');'\\n            Download the codebase\\n        ';U=urllib3.PoolManager();H=U.request('GET',E['CodeDownloadUrl'],preload_content=False,headers={'Cookie':'_gh_sess={};\
+                  \ user_session={}'.format(os.environ['GITHUB_GH_SESSION_COOKIE'],os.environ['GITHUB_USER_SESSION_COOKIE'])})\n\t\tif H.status!=200:print('Failed to Download Demo UI Code: HTTP Code '+str(H.status));return\
+                  \ cfnresponse.send(A,B,cfnresponse.FAILED,C)\n\t\twith H as V,open(G,'wb')as W:shutil.copyfileobj(V,W)\n\t\t'\\n            Unzip the downloaded code\\n        '\n\t\twith zipfile.ZipFile(G,'r')as\
+                  \ X:X.extractall(L)\n\t\tM='/demo/dashboard-ui/';'\\n            For each file in the local code directory\\n        '\n\t\tfor D in glob.iglob(L+'**/**',recursive=True):\n\t\t\t\"\\n        \
+                  \        If it's one of the dashboard files and it's a file, not a directory, we'll upload it to S3\\n            \"\n\t\t\tif M in D and os.path.isfile(D):\n\t\t\t\t\"\\n                    If\
+                  \ it's the index file, we need to add the Cognito Client ID to help authenticate Demo API requests.\\n                ''\\n                if file_path[-10:] == 'index.html':\\n              \
+                  \      \\n                    with open(file_path, 'r') as file:\\n                        file_contents = file.read()\\n\\n                    file_contents = file_contents.replace('{{COGNITO_CLIENT_ID}}',\
+                  \ arguments['CognitoClientId'])\\n\\n                    with open(file_path, 'w') as file:\\n                        file.write(file_contents)\\n\\n                    print('Added Cognito Client\
+                  \ ID to Demo UI Index File: ' + file_path)\\n                \"\n\t\t\t\ttry:Y=D.split(M)[1];F.upload_file(D,E[K],Y,ExtraArgs={'ContentType':mimetypes.guess_type(D)[0]})\n\t\t\t\texcept boto3_client_error\
+                  \ as I:print('Failed to Upload Dashboard File: '+str(I));return cfnresponse.send(A,B,cfnresponse.FAILED,C)\n\telif A[R]in['Delete']:\n\t\treturn cfnresponse.send(A,B,cfnresponse.SUCCESS,C);\"\\\
+                  n            Here, we'll delete all objects, versions, and delete markers from the bucket.\\n        \";Z=F.get_paginator('list_object_versions');J=[]\n\t\tfor N in Z.paginate(Bucket=E[K]):\n\t\
+                  \t\tfor O in['Versions','DeleteMarkers']:\n\t\t\t\tif O in N:\n\t\t\t\t\tfor P in N[O]:J.append({S:P[S],T:P[T]})\n\t\tfor Q in range(0,len(J),1000):\n\t\t\ttry:a=F.delete_objects(Bucket=E[K],Delete={'Objects':J[Q:Q+1000],'Quiet':True})\n\
+                  \t\t\texcept boto3_client_error as I:print('Failed to Delete S3 Objects: '+str(I));return cfnresponse.send(A,B,cfnresponse.FAILED,C)\n\treturn cfnresponse.send(A,B,cfnresponse.SUCCESS,C)"
               Description: Downloads dashboard code from a remote repo and deploys it to Amazon S3
               Environment:
                 Variables:
@@ -4909,11 +4974,6 @@ Resources:
               Properties:
                 CodeBucketName: !GetAtt 'Authentication.Outputs.S3Bucket'
                 CodeDownloadUrl: !Ref 'CodeDownloadUrl'
-                DemoAppApiKeyId: !Join
-                  - ''
-                  - - '{{resolve:ssm:/'
-                    - !Ref 'MainStackName'
-                    - /DemoAppApiKeyId}}
                 Version: '1.13'
               ServiceToken: !GetAtt 'DashboardCodeDeployer.Arn'
               Type: Custom::DeployDashboardCode
@@ -4955,21 +5015,6 @@ Resources:
                               - !GetAtt 'Authentication.Outputs.S3Bucket'
                               - /*
                         Sid: PutS3Objects
-                      - Action:
-                          - apigateway:GET
-                        Effect: Allow
-                        Resource:
-                          - !Join
-                            - ''
-                            - - 'arn:aws:apigateway:'
-                              - !Ref 'AWS::Region'
-                              - ::/apikeys/
-                              - !Join
-                                - ''
-                                - - '{{resolve:ssm:/'
-                                  - !Ref 'MainStackName'
-                                  - /DemoAppApiKeyId}}
-                        Sid: GetApiKey
                   PolicyName: main-policy
             Type: AWS::IAM::Role
         Transform: AWS::Serverless-2016-10-31
@@ -5046,8 +5091,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the handles that facilitate the demo failover tracking.
-          LastUpdated: April 03, 2024
-          Version: v1.7
+          LastUpdated: May 18, 2024
+          Version: v1.9
         Parameters:
           CodeDownloadUrl:
             Default: https://github.com/aws-solutions-library-samples/guidance-for-architecting-resilient-database-with-amazon-aurora-on-aws/archive/refs/heads/main.zip
@@ -5735,8 +5780,8 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the VPC and other networking resources required to host the application
-          LastUpdated: April 03, 2024
-          Version: v1.7
+          LastUpdated: May 18, 2024
+          Version: v1.9
         Outputs:
           LambdaSecurityGroupId:
             Condition: ''

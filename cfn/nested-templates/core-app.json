@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This application deploys a Global RDS Aurora cluster.",
-  "LastUpdated": "April 03, 2024",
-  "Version": "v1.7"
+  "LastUpdated": "May 18, 2024",
+  "Version": "v1.9"
  },
  "Outputs": {
   "CoreAppHandlerName": {

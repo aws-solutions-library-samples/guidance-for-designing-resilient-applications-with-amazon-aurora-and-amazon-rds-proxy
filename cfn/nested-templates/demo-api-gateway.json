@@ -7,8 +7,8 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template provisions the demo API Gateway",
-  "LastUpdated": "April 03, 2024",
-  "Version": "v1.7"
+  "LastUpdated": "May 18, 2024",
+  "Version": "v1.9"
  },
  "Outputs": {
   "ApiRootResourceId": {
@@ -20,16 +20,19 @@
     ]
    }
   },
+  "CognitoAuthorizerId": {
+   "Condition": "",
+   "Value": {
+    "Fn::GetAtt": [
+     "CognitoAuthorizer",
+     "AuthorizerId"
+    ]
+   }
+  },
   "DemoAppApiId": {
    "Condition": "",
    "Value": {
     "Ref": "Api"
-   }
-  },
-  "DemoAppApiKeyId": {
-   "Condition": "",
-   "Value": {
-    "Ref": "ApiKey"
    }
   }
  },
@@ -127,15 +130,6 @@
    },
    "Type": "AWS::ApiGateway::RestApi"
   },
-  "ApiKey": {
-   "Properties": {
-    "Description": {
-     "Ref": "AWS::StackName"
-    },
-    "Enabled": true
-   },
-   "Type": "AWS::ApiGateway::ApiKey"
-  },
   "ApiRootResourceIdParam": {
    "Condition": "",
    "Properties": {
@@ -170,6 +164,99 @@
      "Fn::GetAtt": [
       "Api",
       "RootResourceId"
+     ]
+    }
+   },
+   "Type": "AWS::SSM::Parameter"
+  },
+  "CognitoAuthorizer": {
+   "Properties": {
+    "IdentitySource": "method.request.header.Authorization",
+    "Name": "Cognito-User-Pool",
+    "ProviderARNs": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":cognito-idp:",
+        {
+         "Ref": "AWS::Region"
+        },
+        ":",
+        {
+         "Ref": "AWS::AccountId"
+        },
+        ":userpool/",
+        {
+         "Fn::Join": [
+          "",
+          [
+           "{{resolve:ssm:/",
+           {
+            "Ref": "MainStackName"
+           },
+           "/CognitoUserPoolId}}"
+          ]
+         ]
+        }
+       ]
+      ]
+     }
+    ],
+    "RestApiId": {
+     "Fn::Join": [
+      "",
+      [
+       "{{resolve:ssm:/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/DemoAppApiId}}"
+      ]
+     ]
+    },
+    "Type": "COGNITO_USER_POOLS"
+   },
+   "Type": "AWS::ApiGateway::Authorizer"
+  },
+  "CognitoAuthorizerIdParam": {
+   "Condition": "",
+   "Properties": {
+    "Description": {
+     "Fn::Join": [
+      "",
+      [
+       "Cognito API Authorizer ID for ",
+       {
+        "Ref": "AWS::StackName"
+       },
+       " stack"
+      ]
+     ]
+    },
+    "Name": {
+     "Fn::Join": [
+      "",
+      [
+       "/",
+       {
+        "Ref": "MainStackName"
+       },
+       "/",
+       "CognitoAuthorizerId"
+      ]
+     ]
+    },
+    "Tier": "Standard",
+    "Type": "String",
+    "Value": {
+     "Fn::GetAtt": [
+      "CognitoAuthorizer",
+      "AuthorizerId"
      ]
     }
    },
@@ -231,42 +318,6 @@
     "Type": "String",
     "Value": {
      "Ref": "Api"
-    }
-   },
-   "Type": "AWS::SSM::Parameter"
-  },
-  "DemoAppApiKeyIdParam": {
-   "Condition": "",
-   "Properties": {
-    "Description": {
-     "Fn::Join": [
-      "",
-      [
-       "API Key ID for ",
-       {
-        "Ref": "AWS::StackName"
-       },
-       " stack"
-      ]
-     ]
-    },
-    "Name": {
-     "Fn::Join": [
-      "",
-      [
-       "/",
-       {
-        "Ref": "MainStackName"
-       },
-       "/",
-       "DemoAppApiKeyId"
-      ]
-     ]
-    },
-    "Tier": "Standard",
-    "Type": "String",
-    "Value": {
-     "Ref": "ApiKey"
     }
    },
    "Type": "AWS::SSM::Parameter"
