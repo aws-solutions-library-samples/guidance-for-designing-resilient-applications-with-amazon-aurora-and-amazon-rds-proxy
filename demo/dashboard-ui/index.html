@@ -387,10 +387,38 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js" integrity="sha384-86mmuxXJYGTFcyG3Tr7nKO2BYpngqxq/EYijDDr0VCbSXm5HK6tfJbGl4HSwEoUk" crossorigin="anonymous"></script>
 
     <script>
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        const awsRegionName = urlParams.get('awsRegion');
+        const cognitoClientId = urlParams.get('cognitoClientId');
+    
+        function getCognitoCookie(suffix) 
+        {
+            let cookieToRetrieve = 'CognitoIdentityServiceProvider.' + cognitoClientId + '.';
+            
+            if (suffix == 'LastAuthUser')
+            {
+                cookieToRetrieve += suffix
+            }
+            else
+            {
+                let lastAuthUser = getCognitoCookie('LastAuthUser');
+                cookieToRetrieve += lastAuthUser + '.' + suffix;
+            }
+            
+            const allCookies = `; ${document.cookie}`;
+            const cookieParts = allCookies.split(`; ${cookieToRetrieve}=`);
+            
+            if (cookieParts.length === 2)
+            {
+                return cookieParts.pop().split(';').shift();
+            }
+        }
+        
+        let cognitoAccessToken = getCognitoCookie('idToken');
+        
         $('.carousel').carousel()
-        	
-        	const urlParams = new URLSearchParams(window.location.search);
-        	const regionName = urlParams.get('region');
         	
         	function sleep(ms) {
         		return new Promise(resolve => setTimeout(resolve, ms));
@@ -399,7 +427,7 @@
         	document.querySelector('.clean').addEventListener('click', (e) => {
     		    
     		    let requestHeaders = new Headers();
-    		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+    		    requestHeaders.append('Authorization', cognitoAccessToken);
     		
     			let request = new Request('https://' + urlParams.get('apiHost') + '/reset-demo-environment', {
     			    headers: requestHeaders
@@ -413,7 +441,7 @@
         	document.querySelector('.send_requests').addEventListener('click', (e) => {
         		
         		let requestHeaders = new Headers();
-    		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+    		    requestHeaders.append('Authorization', cognitoAccessToken);
     		    
     			let request = new Request('https://' + urlParams.get('apiHost') + '/generate-sample-traffic', {
     			    headers: requestHeaders
@@ -427,7 +455,7 @@
         	document.querySelector('.initiate_failover').addEventListener('click', (e) => {	
         	    
         	    let requestHeaders = new Headers();
-    		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+    		    requestHeaders.append('Authorization', cognitoAccessToken);
     		    
     			let request = new Request('https://' + urlParams.get('apiHost') + '/initiate-failover', {
     			    headers: requestHeaders
@@ -444,7 +472,7 @@
         		async function getFailoverEventData() 
         		{
         		    let requestHeaders = new Headers();
-        		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+        		    requestHeaders.append('Authorization', cognitoAccessToken);
         		    
         			let request = new Request('https://' + urlParams.get('apiHost') + '/get-failover-events', {
         			    headers: requestHeaders
@@ -492,7 +520,7 @@
         		async function getEnvironmentDataRequest()
         		{
         		    let requestHeaders = new Headers();
-        		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+        		    requestHeaders.append('Authorization', cognitoAccessToken);
         		    
         			let request = new Request('https://' + urlParams.get('apiHost') + '/get-environment-data', {
         			    headers: requestHeaders
@@ -507,12 +535,12 @@
         			{	
         				az_data = environment_data['clusterInfo'][cluster_name]
         				
-        				if (az_data['az'] == regionName + 'a')
+        				if (az_data['az'] == awsRegionName + 'a')
         				{
-        				    $('#ZoneALabel').text(regionName + 'a')
+        				    $('#ZoneALabel').text(awsRegionName + 'a')
         					$('#ZoneAStatus').text(az_data['type'])
         					
-        					$('#Instance1Label').text(regionName + 'a')
+        					$('#Instance1Label').text(awsRegionName + 'a')
         					$('#Instance1RecordCount').text(az_data['records'])
         					
         					if (az_data['type'] == 'READER')
@@ -524,12 +552,12 @@
         						$('#ZoneAStatus').css("color","blue")
         					}
         				}
-        				else if (az_data['az'] == regionName + 'b')
+        				else if (az_data['az'] == awsRegionName + 'b')
         				{
-        				    $('#ZoneBLabel').text(regionName + 'b')
+        				    $('#ZoneBLabel').text(awsRegionName + 'b')
         					$('#ZoneBStatus').text(az_data['type'])
         					
-        					$('#Instance2Label').text(regionName + 'b')
+        					$('#Instance2Label').text(awsRegionName + 'b')
         					$('#Instance2RecordCount').text(az_data['records'])
         					
         					if (az_data['type'] == 'READER')
@@ -592,55 +620,12 @@
         	  }
         	});
         
-        	/*var ctx_error = document.getElementById("cvsError");
-        	
-        	var primaryRegionErrorChart = new Chart(ctx_error, 
-        	{
-                type: 'line',
-        	    data: 
-        	    {
-        		    labels: [],
-        		    datasets: [
-        		        {
-        		            data: [],
-        		            borderWidth: 1,
-        		            borderColor:'red',
-        		            label: 'liveCount',
-        		        }
-                    ]
-        	    },
-        	    options: 
-        	    {
-        		    responsive: true,
-        		    title: 
-        		    {
-        		        display: true,
-        		        text: "Errors"
-        		    },
-        		    legend: 
-        		    {
-        		        display: false
-        		    },
-        		    scales: 
-        		    {
-        		        yAxes: [
-                        {
-        			        ticks: 
-        			        {
-        			            beginAtZero: true,
-        			            suggestedMax: 80
-        			        }
-                        }]
-                    }
-        	    }
-        	});*/
-        
         	function getPrimaryRegion()
         	{
         		async function getPrimaryRegionData() 
         		{
         		    let requestHeaders = new Headers();
-        		    requestHeaders.append('x-api-key', '{{DEMO-API-KEY}}');
+        		    requestHeaders.append('Authorization', cognitoAccessToken);
         		    
         			let request = new Request('https://' + urlParams.get('apiHost') + '/get-client-traffic', {
         			    headers: requestHeaders
