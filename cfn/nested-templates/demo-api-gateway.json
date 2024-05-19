@@ -7,7 +7,7 @@
   "Comments": "",
   "CreatedBy": "Carter Meyers (AWS)",
   "Description": "This template provisions the demo API Gateway",
-  "LastUpdated": "May 18, 2024",
+  "LastUpdated": "May 19, 2024",
   "Version": "v1.9"
  },
  "Outputs": {
@@ -170,6 +170,9 @@
    "Type": "AWS::SSM::Parameter"
   },
   "CognitoAuthorizer": {
+   "DependsOn": [
+    "Api"
+   ],
    "Properties": {
     "IdentitySource": "method.request.header.Authorization",
     "Name": "Cognito-User-Pool",
@@ -208,16 +211,7 @@
      }
     ],
     "RestApiId": {
-     "Fn::Join": [
-      "",
-      [
-       "{{resolve:ssm:/",
-       {
-        "Ref": "MainStackName"
-       },
-       "/DemoAppApiId}}"
-      ]
-     ]
+     "Ref": "Api"
     },
     "Type": "COGNITO_USER_POOLS"
    },

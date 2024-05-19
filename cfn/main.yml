@@ -60,7 +60,7 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This template deploys a 0-RPO database architecture using Amazon RDS, Amazon SQS, AWS Lambda, and Amazon API Gateway.
-  LastUpdated: May 18, 2024
+  LastUpdated: May 19, 2024
   Version: v1.9
 Outputs:
   CloudWatchDashboardUrl:
@@ -335,7 +335,7 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This application deploys a Global RDS Aurora cluster.
-          LastUpdated: May 18, 2024
+          LastUpdated: May 19, 2024
           Version: v1.9
         Outputs:
           CoreAppHandlerName:
@@ -995,7 +995,7 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the app and demo databases (if applicable)
-          LastUpdated: May 18, 2024
+          LastUpdated: May 19, 2024
           Version: v1.9
         Outputs:
           AppDbAdminSecretArn:
@@ -2073,7 +2073,7 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the demo API Gateway API
-          LastUpdated: May 18, 2024
+          LastUpdated: May 19, 2024
           Version: v1.9
         Outputs:
           ApiHostExport:
@@ -2289,7 +2289,7 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template provisions the demo API Gateway
-          LastUpdated: May 18, 2024
+          LastUpdated: May 19, 2024
           Version: v1.9
         Outputs:
           ApiRootResourceId:
@@ -2388,6 +2388,8 @@ Resources:
               Value: !GetAtt 'Api.RootResourceId'
             Type: AWS::SSM::Parameter
           CognitoAuthorizer:
+            DependsOn:
+              - Api
             Properties:
               IdentitySource: method.request.header.Authorization
               Name: Cognito-User-Pool
@@ -2406,11 +2408,7 @@ Resources:
                       - - '{{resolve:ssm:/'
                         - !Ref 'MainStackName'
                         - /CognitoUserPoolId}}
-              RestApiId: !Join
-                - ''
-                - - '{{resolve:ssm:/'
-                  - !Ref 'MainStackName'
-                  - /DemoAppApiId}}
+              RestApiId: !Ref 'Api'
               Type: COGNITO_USER_POOLS
             Type: AWS::ApiGateway::Authorizer
           CognitoAuthorizerIdParam:
@@ -2536,7 +2534,7 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template provisions the demo API methods and handlers
-          LastUpdated: May 18, 2024
+          LastUpdated: May 19, 2024
           Version: v1.9
         Parameters:
           CodeDownloadUrl:
@@ -3667,7 +3665,7 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template provisions the demo API methods and handlers
-          LastUpdated: May 18, 2024
+          LastUpdated: May 19, 2024
           Version: v1.9
         Parameters:
           CodeDownloadUrl:
@@ -4791,7 +4789,7 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the demo CloudFront Distrubtion and dashboard
-          LastUpdated: May 18, 2024
+          LastUpdated: May 19, 2024
           Version: v1.9
         Outputs:
           CloudFrontCdnWebsiteExport:
@@ -4918,7 +4916,7 @@ Resources:
                 ZipFile: "import sys,subprocess\nsubprocess.call('pip install urllib3<2 cfnresponse -t /tmp/ --no-cache-dir'.split(),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)\nsys.path.insert(1,'/tmp/')\n\
                   import os,json,glob,boto3,shutil,urllib3,zipfile,mimetypes,cfnresponse\nfrom collections import defaultdict\nfrom botocore.exceptions import ClientError as boto3_client_error\nhttp=urllib3.PoolManager()\n\
                   try:from urllib2 import HTTPError,build_opener,HTTPHandler,Request\nexcept ImportError:from urllib.error import HTTPError;from urllib.request import build_opener,HTTPHandler,Request\n'\\n    -\
-                  \ CodeBucketName | str\\n    - CodeDownloadUrl | str\\n    - CognitoClientId | str\\n'\ndef handler(event,context):\n\tT='VersionId';S='Key';R='RequestType';K='CodeBucketName';B=context;A=event;print(json.dumps(A));E=A['ResourceProperties']['Properties'];F=boto3.client('s3');C={}\n\
+                  \ CodeBucketName | str\\n    - CodeDownloadUrl | str\\n'\ndef handler(event,context):\n\tT='VersionId';S='Key';R='RequestType';K='CodeBucketName';B=context;A=event;print(json.dumps(A));E=A['ResourceProperties']['Properties'];F=boto3.client('s3');C={}\n\
                   \tif A[R]in['Create','Update']:\n\t\tG='/tmp/demo_ui_code.zip';L=G.replace('.zip','');'\\n            Download the codebase\\n        ';U=urllib3.PoolManager();H=U.request('GET',E['CodeDownloadUrl'],preload_content=False,headers={'Cookie':'_gh_sess={};\
                   \ user_session={}'.format(os.environ['GITHUB_GH_SESSION_COOKIE'],os.environ['GITHUB_USER_SESSION_COOKIE'])})\n\t\tif H.status!=200:print('Failed to Download Demo UI Code: HTTP Code '+str(H.status));return\
                   \ cfnresponse.send(A,B,cfnresponse.FAILED,C)\n\t\twith H as V,open(G,'wb')as W:shutil.copyfileobj(V,W)\n\t\t'\\n            Unzip the downloaded code\\n        '\n\t\twith zipfile.ZipFile(G,'r')as\
@@ -5091,7 +5089,7 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the handles that facilitate the demo failover tracking.
-          LastUpdated: May 18, 2024
+          LastUpdated: May 19, 2024
           Version: v1.9
         Parameters:
           CodeDownloadUrl:
@@ -5780,7 +5778,7 @@ Resources:
           Comments: ''
           CreatedBy: Carter Meyers (AWS)
           Description: This template deploys the VPC and other networking resources required to host the application
-          LastUpdated: May 18, 2024
+          LastUpdated: May 19, 2024
           Version: v1.9
         Outputs:
           LambdaSecurityGroupId:
