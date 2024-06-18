@@ -26,33 +26,48 @@ Data loss, particularly during database failures, is a significant challenge for
 
 The solution is structured around two key applications: the ‘Demo App’ and the ‘Core App’. The ‘Demo App’  consists of user interface page to produce load for the application and log successful calls and errors in a simple UI. The ‘Core App’ is designed to temporarily store requests in Amazon SQS and consistently commit data to an Aurora instance, ensuring data availability before, during, and after any failover events. 
 
-
 ### Cost
 
 This section is for a high-level cost estimate. Think of a likely straightforward scenario with reasonable assumptions based on the problem the Guidance is trying to solve. If applicable, provide an in-depth cost breakdown table in this section.
 
 Start this section with the following boilerplate text:
 
-_You are responsible for the cost of the AWS services used while running this Guidance. As of <month> <year>, the cost for running this Guidance with the default settings in the <Default AWS Region (Most likely will be US East (N. Virginia)) > is approximately $<n.nn> per month for processing ( <nnnnn> records )._
+The following table provides a sample cost breakdown for deploying this Guidance with the default parameters in the US East (N. Virginia) Region for one month. While the utlized services come with free tier usage, this breakdown assumes that the account into which you deploy this Guidance has no free tier usage remaining. Therefore, if the account into which you deploying this Guidance DOES have free tier usage remaining, your cost for running this Guidance should be less than what is estimated below.
 
-Replace this amount with the approximate cost for running your Guidance in the default Region. This estimate should be per month and for processing/serving resonable number of requests/entities.
+| AWS Service  | Estimated Usage | Cost/Mo. [USD] |
+| ----------- | ------------ | ------------ |
+| Amazon API Gateway | ~3k REST API Calls per Demo Execution | $0.00
+| Amazon CloudFront | < 50 HTTP Requests and < 1 GB Data Transfer Out | $0.08
+| Amazon CloudWatch | 1 Dashboard and < 25 MB of Logs per Demo Execution | $3.00
+| Amazon Cognito | 1 Monthly Active User | $0.00
+| Amazon EventBridge | < 10 Events per Demo Execution | $0.00
+| Amazon KMS | 1 CMK and < 10k Requests per Demo Execution | $1.03
+| AWS Lambda | < 50 Lambda@Edge Invocations, < 4k 128 MB Requests per Demo Execution | $0.03
+| Amazon S3 | < 5 MB of Standard Storage and ~100 GET/POST Requests per Deployment | $0.00
+| AWS Secrets Manager | 2 Secrets per Deployment and ~3k API Calls per Demo Execution | $1.05
+| Amazon SNS | ~3k Requests per Demo Execution | $0.01
+| Amazon SQS | ~3k Standard Queue Requests per Demo Execution | $0.00
+| Amazon RDS | 4 db.r6g.large Aurora Postgres Instances w/ RDS Proxies | $848.88
+| AWS WAF | 1 ACL with 1 Common Bot Control Rule and ~3k Requests per Demo Execution | $6.00
+| Amazon VPC | 1,464 NAT Gateway & Elastic IP hours | $73.20
 
+_You are responsible for the cost of the AWS services used while running this Guidance. As of June 2024, the cost for running this Guidance with the default settings in the us-east-1 (N. Virginia) AWS Region is approximately $933.28/mo. or $1.27/hr._
 
 ## Prerequisites 
 
 * Pick a unique-looking stack name (suggest all-caps with whole words describing what the stack does). These will become the prefix for all the resources the stack creates
 * Pick a database username and password you'd like the demo to use for the Aurora databases it creates. Please be aware that the password must be longer than 8 characters and no special characters. The username can't be a Postgres keyword (like "admin")
-* Provide a valid email ID to receive temporary password for the Demo app 
+* Provide a valid email address to receive a temporary password that you'll use to access the Demo app
 
 ## Deployment Steps
 
-* See pre-requisites section above, as you will be prompted for these by the next step
+* See pre-requisites section above, as you will be prompted for these in the next step
 * This solution can be deployed using a single main CloudFormation template located [here](/cfn). Both main.yml and main.json are functionally identical. This template takes roughly 30 minutes to deploy.
-* During deployment, this template will launch several additional CloudFormation StackSets to fully deploy the required resources. While you don't need to launch or modify these StackSets directly, the underlying templates have been included in this repo for your reference
+* During deployment, this template will launch several additional CloudFormation StackSets to fully deploy the required resources. While you don't need to launch or modify these StackSets directly, the underlying templates have been included in this repo for your reference.
 * Once deployed, the primary stack you launch will contain the following outputs:
-  * CloudWatchDashboardUrl - CloudWwatch dashboard to access application metrics
-  * DemoDashboardUrl - The dashboard to simulate user traffic and failover
-* An email will be sent to the email ID provided during the CloudFormation stack setup, containing a temporary password. Use this temporary password to log in to the DemoDashboard. Upon first login, the portal will prompt you to change the password.
+  * DemoDashboardUrl - The dashboard you'll use to simulate user traffic and failover
+  * CloudWatchDashboardUrl - A CloudWwatch dashboard you can use to view application metrics
+* An email will be sent to the email address provided during the CloudFormation stack setup, containing a temporary password. Use this temporary password to log into the DemoDashboard. Upon first login, the portal will prompt you to change the password.
   
 ## Deployment Validation 
 
