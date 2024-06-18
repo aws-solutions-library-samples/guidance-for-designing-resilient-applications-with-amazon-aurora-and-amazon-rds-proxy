@@ -28,7 +28,7 @@ The solution is structured around two key applications: the ‘Demo App’ and t
 
 ### Cost
 
-The table below provides a sample cost breakdown for deploying this Guidance with the default parameters in the US East (N. Virginia) Region for one month. 
+The table below provides a sample cost breakdown for deploying this Guidance with the default parameters in the US East (N. Virginia) Region for **one month**. 
 
 While the utlized services come with free tier usage, this breakdown assumes that the account into which you deploy this Guidance has no free tier usage remaining. Therefore, if the account into which you deploying this Guidance DOES have free tier usage remaining, your cost for running this Guidance should be less than what is estimated below.
 
