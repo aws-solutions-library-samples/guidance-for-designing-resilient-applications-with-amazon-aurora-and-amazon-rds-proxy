@@ -5,8 +5,8 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This application deploys a Global RDS Aurora cluster.
-  LastUpdated: May 19, 2024
-  Version: v1.9
+  LastUpdated: June 26, 2024
+  Version: v1.10
 Outputs:
   CoreAppHandlerName:
     Condition: ''
@@ -60,12 +60,6 @@ Parameters:
     Description: >-
       Would you like a demo application deployed along side this solution that will allow you to test the failover? INFO: Because of WAF service requirements, demo WAF and CloudFront resources will be deployed
       to us-east-1, regardless of which region you deploy this stack to.
-    Type: String
-  GitHubGhSessionValue:
-    Description: The value of your GitHub "_gh_sess" cookie. This parameter will be removed when the solution's GitHub repo is made public.
-    Type: String
-  GitHubUserSessionValue:
-    Description: The value of your GitHub "user_session" cookie. This parameter will be removed when the solution's GitHub repo is made public.
     Type: String
   LambdaLayerArn:
     Type: String

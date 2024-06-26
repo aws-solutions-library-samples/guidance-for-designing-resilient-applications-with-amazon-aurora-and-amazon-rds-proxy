@@ -5,8 +5,8 @@ Metadata:
   Comments: ''
   CreatedBy: Carter Meyers (AWS)
   Description: This template deploys the demo CloudFront Distrubtion and dashboard
-  LastUpdated: May 19, 2024
-  Version: v1.9
+  LastUpdated: June 26, 2024
+  Version: v1.10
 Outputs:
   CloudFrontCdnWebsiteExport:
     Export:
@@ -49,12 +49,6 @@ Parameters:
     Description: >-
       Would you like a demo application deployed along side this solution that will allow you to test the failover? INFO: Because of WAF service requirements, demo WAF and CloudFront resources will be deployed
       to us-east-1, regardless of which region you deploy this stack to.
-    Type: String
-  GitHubGhSessionValue:
-    Description: The value of your GitHub "_gh_sess" cookie. This parameter will be removed when the solution's GitHub repo is made public.
-    Type: String
-  GitHubUserSessionValue:
-    Description: The value of your GitHub "user_session" cookie. This parameter will be removed when the solution's GitHub repo is made public.
     Type: String
   LambdaLayerArn:
     Type: String
@@ -133,26 +127,23 @@ Resources:
           import os,json,glob,boto3,shutil,urllib3,zipfile,mimetypes,cfnresponse\nfrom collections import defaultdict\nfrom botocore.exceptions import ClientError as boto3_client_error\nhttp=urllib3.PoolManager()\n\
           try:from urllib2 import HTTPError,build_opener,HTTPHandler,Request\nexcept ImportError:from urllib.error import HTTPError;from urllib.request import build_opener,HTTPHandler,Request\n'\\n    -\
           \ CodeBucketName | str\\n    - CodeDownloadUrl | str\\n'\ndef handler(event,context):\n\tT='VersionId';S='Key';R='RequestType';K='CodeBucketName';B=context;A=event;print(json.dumps(A));E=A['ResourceProperties']['Properties'];F=boto3.client('s3');C={}\n\
-          \tif A[R]in['Create','Update']:\n\t\tG='/tmp/demo_ui_code.zip';L=G.replace('.zip','');'\\n            Download the codebase\\n        ';U=urllib3.PoolManager();H=U.request('GET',E['CodeDownloadUrl'],preload_content=False,headers={'Cookie':'_gh_sess={};\
-          \ user_session={}'.format(os.environ['GITHUB_GH_SESSION_COOKIE'],os.environ['GITHUB_USER_SESSION_COOKIE'])})\n\t\tif H.status!=200:print('Failed to Download Demo UI Code: HTTP Code '+str(H.status));return\
-          \ cfnresponse.send(A,B,cfnresponse.FAILED,C)\n\t\twith H as V,open(G,'wb')as W:shutil.copyfileobj(V,W)\n\t\t'\\n            Unzip the downloaded code\\n        '\n\t\twith zipfile.ZipFile(G,'r')as\
-          \ X:X.extractall(L)\n\t\tM='/demo/dashboard-ui/';'\\n            For each file in the local code directory\\n        '\n\t\tfor D in glob.iglob(L+'**/**',recursive=True):\n\t\t\t\"\\n        \
-          \        If it's one of the dashboard files and it's a file, not a directory, we'll upload it to S3\\n            \"\n\t\t\tif M in D and os.path.isfile(D):\n\t\t\t\t\"\\n                    If\
-          \ it's the index file, we need to add the Cognito Client ID to help authenticate Demo API requests.\\n                ''\\n                if file_path[-10:] == 'index.html':\\n              \
-          \      \\n                    with open(file_path, 'r') as file:\\n                        file_contents = file.read()\\n\\n                    file_contents = file_contents.replace('{{COGNITO_CLIENT_ID}}',\
-          \ arguments['CognitoClientId'])\\n\\n                    with open(file_path, 'w') as file:\\n                        file.write(file_contents)\\n\\n                    print('Added Cognito Client\
-          \ ID to Demo UI Index File: ' + file_path)\\n                \"\n\t\t\t\ttry:Y=D.split(M)[1];F.upload_file(D,E[K],Y,ExtraArgs={'ContentType':mimetypes.guess_type(D)[0]})\n\t\t\t\texcept boto3_client_error\
-          \ as I:print('Failed to Upload Dashboard File: '+str(I));return cfnresponse.send(A,B,cfnresponse.FAILED,C)\n\telif A[R]in['Delete']:\n\t\treturn cfnresponse.send(A,B,cfnresponse.SUCCESS,C);\"\\\
-          n            Here, we'll delete all objects, versions, and delete markers from the bucket.\\n        \";Z=F.get_paginator('list_object_versions');J=[]\n\t\tfor N in Z.paginate(Bucket=E[K]):\n\t\
-          \t\tfor O in['Versions','DeleteMarkers']:\n\t\t\t\tif O in N:\n\t\t\t\t\tfor P in N[O]:J.append({S:P[S],T:P[T]})\n\t\tfor Q in range(0,len(J),1000):\n\t\t\ttry:a=F.delete_objects(Bucket=E[K],Delete={'Objects':J[Q:Q+1000],'Quiet':True})\n\
+          \tif A[R]in['Create','Update']:\n\t\tG='/tmp/demo_ui_code.zip';L=G.replace('.zip','');'\\n            Download the codebase\\n        ';U=urllib3.PoolManager();H=U.request('GET',E['CodeDownloadUrl'],preload_content=False)\n\
+          \t\tif H.status!=200:print('Failed to Download Demo UI Code: HTTP Code '+str(H.status));return cfnresponse.send(A,B,cfnresponse.FAILED,C)\n\t\twith H as V,open(G,'wb')as W:shutil.copyfileobj(V,W)\n\
+          \t\t'\\n            Unzip the downloaded code\\n        '\n\t\twith zipfile.ZipFile(G,'r')as X:X.extractall(L)\n\t\tM='/demo/dashboard-ui/';'\\n            For each file in the local code directory\\\
+          n        '\n\t\tfor D in glob.iglob(L+'**/**',recursive=True):\n\t\t\t\"\\n                If it's one of the dashboard files and it's a file, not a directory, we'll upload it to S3\\n       \
+          \     \"\n\t\t\tif M in D and os.path.isfile(D):\n\t\t\t\t\"\\n                    If it's the index file, we need to add the Cognito Client ID to help authenticate Demo API requests.\\n     \
+          \           ''\\n                if file_path[-10:] == 'index.html':\\n                    \\n                    with open(file_path, 'r') as file:\\n                        file_contents = file.read()\\\
+          n\\n                    file_contents = file_contents.replace('{{COGNITO_CLIENT_ID}}', arguments['CognitoClientId'])\\n\\n                    with open(file_path, 'w') as file:\\n            \
+          \            file.write(file_contents)\\n\\n                    print('Added Cognito Client ID to Demo UI Index File: ' + file_path)\\n                \"\n\t\t\t\ttry:Y=D.split(M)[1];F.upload_file(D,E[K],Y,ExtraArgs={'ContentType':mimetypes.guess_type(D)[0]})\n\
+          \t\t\t\texcept boto3_client_error as I:print('Failed to Upload Dashboard File: '+str(I));return cfnresponse.send(A,B,cfnresponse.FAILED,C)\n\telif A[R]in['Delete']:\n\t\treturn cfnresponse.send(A,B,cfnresponse.SUCCESS,C);\"\
+          \\n            Here, we'll delete all objects, versions, and delete markers from the bucket.\\n        \";Z=F.get_paginator('list_object_versions');J=[]\n\t\tfor N in Z.paginate(Bucket=E[K]):\n\
+          \t\t\tfor O in['Versions','DeleteMarkers']:\n\t\t\t\tif O in N:\n\t\t\t\t\tfor P in N[O]:J.append({S:P[S],T:P[T]})\n\t\tfor Q in range(0,len(J),1000):\n\t\t\ttry:a=F.delete_objects(Bucket=E[K],Delete={'Objects':J[Q:Q+1000],'Quiet':True})\n\
           \t\t\texcept boto3_client_error as I:print('Failed to Delete S3 Objects: '+str(I));return cfnresponse.send(A,B,cfnresponse.FAILED,C)\n\treturn cfnresponse.send(A,B,cfnresponse.SUCCESS,C)"
       Description: Downloads dashboard code from a remote repo and deploys it to Amazon S3
       Environment:
         Variables:
           CODE_BUCKET_NAME: !GetAtt 'Authentication.Outputs.S3Bucket'
           CODE_DOWNLOAD_URL: !Ref 'CodeDownloadUrl'
-          GITHUB_GH_SESSION_COOKIE: !Ref 'GitHubGhSessionValue'
-          GITHUB_USER_SESSION_COOKIE: !Ref 'GitHubUserSessionValue'
       Handler: index.handler
       Layers:
         - !Ref 'LambdaLayerArn'

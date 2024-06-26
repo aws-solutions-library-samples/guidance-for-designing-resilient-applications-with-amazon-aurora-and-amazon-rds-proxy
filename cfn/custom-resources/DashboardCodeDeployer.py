@@ -50,9 +50,7 @@ def handler(event, context):
             Download the codebase
         '''
         http = urllib3.PoolManager()
-        code_download_response = http.request('GET', arguments['CodeDownloadUrl'], preload_content = False, headers = {
-            'Cookie': '_gh_sess={}; user_session={}'.format(os.environ['GITHUB_GH_SESSION_COOKIE'], os.environ['GITHUB_USER_SESSION_COOKIE'])
-        })
+        code_download_response = http.request('GET', arguments['CodeDownloadUrl'], preload_content = False)
         
         if code_download_response.status != 200:
             print('Failed to Download Demo UI Code: HTTP Code ' + str(code_download_response.status))
